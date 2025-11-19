@@ -2,7 +2,6 @@ import React, { ReactNode } from "react";
 import { AdminSidebar } from "@/components/dashboard/admin/admin-sidebar";
 import { AdminVerificationProvider } from "@/lib/admin-verification-provider";
 import { DashboardNavbar } from "@/components/dashboard/admin/dashboard-navbar";
-import { AdminSocketProvider } from "@/lib/admin-socket-context";
 
 const DashboardLayout = ({ children }: { children: ReactNode }) => {
   return (
