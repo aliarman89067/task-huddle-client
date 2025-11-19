@@ -200,12 +200,6 @@ export const ChatSidebar = ({
             </Avatar>
             <div className="flex flex-col items-start">
               <h3 className="text-white text-sm">{membersData?.admin.name}</h3>
-              <span className="text-neutral-300 text-xs line-clamp-1">
-                Lorem ipsum dolor sit amet consectetur adipisicing elit. Officia
-                at, reprehenderit expedita odit laudantium similique ratione
-                corrupti tempore eveniet aspernatur ducimus quae? Eius esse,
-                fuga eveniet excepturi adipisci velit sunt.
-              </span>
             </div>
           </button>
         </div>
