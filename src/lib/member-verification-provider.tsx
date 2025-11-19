@@ -32,7 +32,9 @@ export const MemberVerificationProvider = ({ children }: Props) => {
         setOrganizationId(organizationId);
         setUser(data.data);
         setIsLoading(false);
-        router.push(`http://localhost:3000/dashboard/member/${organizationId}`);
+        router.push(
+          `${process.env.NEXT_PUBLIC_BASE_CLIENT_URL}/dashboard/member/${organizationId}`
+        );
       } catch (error) {
         console.log(error);
         router.push("/");
