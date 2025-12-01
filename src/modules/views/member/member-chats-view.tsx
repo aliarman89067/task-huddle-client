@@ -32,6 +32,18 @@ export const MemberChatsView = ({ organizationId }: Props) => {
     designation?: string;
     isAdmin: boolean;
   } | null>(null);
+  const [selectedGroup, setSelectedGroup] = useState<{
+    id: string;
+    name: string;
+    image: string | null;
+    members: {
+      id: string;
+      name: string;
+      email: string;
+      image?: string;
+      designation: string;
+    }[];
+  } | null>(null);
 
   return (
     <section className="flex gap-5">
@@ -40,6 +52,8 @@ export const MemberChatsView = ({ organizationId }: Props) => {
         setSelectedMember={setSelectedMember}
         messages={messages}
         setMessages={setMessages}
+        selectedGroup={selectedGroup}
+        setSelectedGroup={setSelectedGroup}
       />
       <ChatBody
         organizationId={organizationId}
@@ -47,6 +61,8 @@ export const MemberChatsView = ({ organizationId }: Props) => {
         setSelectedMember={setSelectedMember}
         messages={messages}
         setMessages={setMessages}
+        selectedGroup={selectedGroup}
+        setSelectedGroup={setSelectedGroup}
       />
     </section>
   );

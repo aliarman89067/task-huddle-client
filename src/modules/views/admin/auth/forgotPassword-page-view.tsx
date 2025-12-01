@@ -77,11 +77,11 @@ export const ForgotPasswordPageView = () => {
         )}
         {step === "otp" && <ForgotPasswordOTP form={form} setStep={setStep} />}
         {step === "password" && <ForgotPassword form={form} />}
-        <p className="text-sm mt-3">
+        <p className="relative text-sm mt-3">
           Go back to{" "}
           <Link
             href="/login"
-            className="text-blue-500 underline underline-offset-2"
+            className="text-blue-500 underline underline-offset-2 cursor-pointer"
           >
             Login
           </Link>

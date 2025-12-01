@@ -22,6 +22,10 @@ import {
   FormLabel,
   FormMessage,
 } from "@/components/ui/form";
+import { NoOrganization } from "@/constant";
+import { EmptyOrganization } from "@/components/empty-organization";
+import { ErrorCard } from "@/components/error-card";
+import { useGetQueryError } from "@/hooks/use-get-query-error";
 
 export const CheckInOutPageView = () => {
   const { selectedOrganizationId } = organizationStore();
@@ -30,9 +34,10 @@ export const CheckInOutPageView = () => {
   const inputRef2 = useRef<HTMLInputElement | null>(null);
 
   // Queries
-  const { data, error, isPending } = useGetAdminOrganization({
-    id: selectedOrganizationId!,
-  });
+  const { data, error, isPending, isSuccess, refetch } =
+    useGetAdminOrganization({
+      id: selectedOrganizationId!,
+    });
   const {
     data: checkInOutData,
     error: checkInOutError,
@@ -45,6 +50,8 @@ export const CheckInOutPageView = () => {
       );
       return res.data;
     },
+    retry: !!selectedOrganizationId,
+    refetchOnWindowFocus: !!selectedOrganizationId,
   });
 
   // Mutations
@@ -176,15 +183,22 @@ export const CheckInOutPageView = () => {
     });
   };
 
-  if (!selectedOrganizationId) {
-    return;
-  }
-
-  if (isPending) {
+  if (isPending || checkInOutPending) {
     return <LoadingScreen />;
   }
-  if (error) {
-    return <div>Something went wrong</div>;
+
+  if (error && !isSuccess) {
+    if (error === NoOrganization) {
+      return <EmptyOrganization />;
+    } else {
+      return <ErrorCard title="Oops!!" description={error} />;
+    }
+  }
+  if (checkInOutError) {
+    const { errorMessage } = useGetQueryError(
+      checkInOutError as AxiosError<{ message: string }>
+    );
+    return <ErrorCard title="Oops!!" description={errorMessage} />;
   }
   return (
     <section className="flex flex-col">

@@ -253,3 +253,4 @@ export const tags = [
 
 export const IPErrorMessage =
   "Your IP address is not authorized to perform this action.";
+export const NoOrganization = "NO_ORGANIZATION";

@@ -32,6 +32,18 @@ import { organizationStore } from "@/zustand/member.store";
 import { useGetAdminOrganization } from "@/lib/common-query";
 import { LoadingScreen } from "@/components/loading-screen";
 import OrganizationInfo from "@/components/organization-info";
+import { EmptyOrganization } from "@/components/empty-organization";
+import { NoOrganization } from "@/constant";
+import { ErrorCard } from "@/components/error-card";
+import { useGetQueryError } from "@/hooks/use-get-query-error";
+import { AxiosError } from "axios";
+
+type Breaks = {
+  id: string;
+  type: "BreakIn" | "BreakOut";
+  breakInTime: Date;
+  breakOutTime: Date;
+}[];
 
 type ResponseType = {
   id: string;
@@ -48,6 +60,7 @@ type ResponseType = {
   isGrace?: boolean;
   reason?: string | null;
   leaveDate?: Date | null;
+  breaks: Breaks;
 };
 
 interface Props {
@@ -68,13 +81,20 @@ export function CheckInOutView() {
 
   const {
     data: organizationData,
-    error,
+    error: organizationError,
     isPending: isOrganizationPending,
+    isSuccess,
+    refetch: organizationRefetch,
   } = useGetAdminOrganization({
     id: selectedOrganizationId!,
     isMember: true,
   });
-  const { data, isPending, isError, refetch } = useQuery({
+  const {
+    data,
+    isPending,
+    error: checkError,
+    refetch,
+  } = useQuery({
     queryKey: ["member-attendance-history"],
     queryFn: async () => {
       const res = await axiosInstance.get(
@@ -82,8 +102,11 @@ export function CheckInOutView() {
       );
       return res.data as ResponseType[];
     },
+    retry: !!selectedOrganizationId,
   });
-
+  useEffect(() => {
+    organizationRefetch();
+  }, []);
   useEffect(() => {
     if (data) {
       const leaves = data.filter(
@@ -120,8 +143,49 @@ export function CheckInOutView() {
           `;
   };
 
-  if (isOrganizationPending) {
+  const getTotalBreakTime = (breaks: Breaks) => {
+    let diff = 0;
+
+    breaks.forEach((item) => {
+      if (item.type === "BreakOut") {
+        diff +=
+          new Date(item.breakOutTime).getTime() -
+          new Date(item.breakInTime).getTime();
+      }
+    });
+    if (diff === 0) {
+      return "-";
+    }
+    console.log("Diff ", diff);
+    const hours = Math.floor(diff / 3600000);
+    const minutes = Math.floor((diff % 360000) / 60000);
+    const seconds = Math.floor((diff % 60000) / 1000);
+    return `
+            ${String(hours).padStart(2, "0")}
+            :
+            ${String(minutes).padStart(2, "0")}
+        :
+        ${String(seconds).padStart(2, "0")}
+          `;
+  };
+
+  if (isOrganizationPending || isPending) {
     return <LoadingScreen />;
+  }
+
+  if (organizationError && !isSuccess) {
+    if (organizationError === NoOrganization) {
+      return <EmptyOrganization />;
+    } else {
+      return <ErrorCard title="Oops!!" description={organizationError} />;
+    }
+  }
+
+  if (checkError) {
+    const { errorMessage } = useGetQueryError(
+      checkError as AxiosError<{ message: string }>
+    );
+    return <ErrorCard title="Oops!!" description={errorMessage} />;
   }
 
   return (
@@ -238,6 +302,8 @@ export function CheckInOutView() {
                         <TableHead>Check In</TableHead>
                         <TableHead>Check Out</TableHead>
                         <TableHead>Total Time</TableHead>
+                        <TableHead>Breaks</TableHead>
+                        <TableHead>Total Break Time</TableHead>
                         <TableHead>Status</TableHead>
                       </TableRow>
                     </TableHeader>
@@ -292,6 +358,15 @@ export function CheckInOutView() {
                                         checkInTime: item.checkInTime!,
                                         checkOutTime: item.checkOutTime!,
                                       })}
+                                  </TableCell>
+                                  <TableCell className="font-mono">
+                                    {item?.breaks?.length || 0}
+                                  </TableCell>
+                                  <TableCell className="font-mono">
+                                    <div className="flex items-center gap-1">
+                                      {/* <Clock className="h-3 w-3 text-muted-foreground" /> */}
+                                      {getTotalBreakTime(item.breaks)}
+                                    </div>
                                   </TableCell>
                                   <TableCell>
                                     {(item.type === "CheckIn" ||

@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { LoadingScreen } from "@/components/loading-screen";
 import OrganizationInfo from "@/components/organization-info";
 import { axiosInstance } from "@/lib/axios-instance";
@@ -24,6 +24,11 @@ import {
   AlertDialogTrigger,
   AlertDialogContent,
 } from "@/components/ui/alert-dialog";
+import { NoOrganization } from "@/constant";
+import { EmptyOrganization } from "@/components/empty-organization";
+import { ErrorCard } from "@/components/error-card";
+import { useGetQueryError } from "@/hooks/use-get-query-error";
+import { AxiosError } from "axios";
 
 type MembersDataType = {
   id: string;
@@ -42,9 +47,10 @@ export const MembersPageView = () => {
     null
   );
   const { selectedOrganizationId } = organizationStore();
-  const { data, error, isPending } = useGetAdminOrganization({
-    id: selectedOrganizationId!,
-  });
+  const { data, error, isPending, refetch, isSuccess } =
+    useGetAdminOrganization({
+      id: selectedOrganizationId!,
+    });
   const queryClient = useQueryClient();
   // Queries
   const {
@@ -59,6 +65,8 @@ export const MembersPageView = () => {
       );
       return res.data as MembersDataType[];
     },
+    retry: !!selectedOrganizationId,
+    // enabled: !!selectedOrganizationId,
   });
   const { data: pendingMembers } = useQuery({
     queryKey: ["get-pending-members"],
@@ -68,17 +76,33 @@ export const MembersPageView = () => {
       );
       return res.data as { email: string; createdAt: string }[];
     },
+    retry: !!selectedOrganizationId,
+    // enabled: !!selectedOrganizationId,
   });
+
+  useEffect(() => {
+    refetch();
+  }, []);
 
   const handleAddMemberRoute = () => {
     router.push("/dashboard/add-members");
   };
-  console.log(pendingMembers);
   if (isPending || membersPending) {
     return <LoadingScreen />;
   }
-  if (error || membersError) {
-    return <div>Something went wrong!</div>;
+
+  if (error && !isSuccess) {
+    if (error === NoOrganization) {
+      return <EmptyOrganization />;
+    } else {
+      return <ErrorCard title="Oops!!" description={error} />;
+    }
+  }
+  if (membersError) {
+    const { errorMessage } = useGetQueryError(
+      membersError as AxiosError<{ message: string }>
+    );
+    return <ErrorCard title="Oops!!" description={errorMessage} />;
   }
   return (
     <section className="flex flex-col">

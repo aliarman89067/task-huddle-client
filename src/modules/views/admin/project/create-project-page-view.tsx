@@ -35,12 +35,14 @@ import {
   FormLabel,
   FormMessage,
 } from "@/components/ui/form";
-import { tags } from "@/constant";
+import { NoOrganization, tags } from "@/constant";
 import {
   CreateProjectFormSchema,
   CreateProjectFormSchemaType,
 } from "@/lib/schema";
 import { useRouter, useSearchParams } from "next/navigation";
+import { EmptyOrganization } from "@/components/empty-organization";
+import { ErrorCard } from "@/components/error-card";
 
 interface Props {
   id: string;
@@ -50,10 +52,11 @@ export const CreateProjectPageView = ({ id }: Props) => {
   const router = useRouter();
   const searchParams = useSearchParams();
   const [serverError, setServerError] = useState("");
-  const { data, error, isPending } = useGetAdminOrganization({
-    id,
-    isMember: true,
-  });
+  const { data, error, isPending, isSuccess, refetch } =
+    useGetAdminOrganization({
+      id,
+      isMember: true,
+    });
   // Mutations
   const mutation = useMutation({
     mutationFn: async (
@@ -85,6 +88,10 @@ export const CreateProjectPageView = ({ id }: Props) => {
   });
 
   useEffect(() => {
+    refetch();
+  }, []);
+
+  useEffect(() => {
     const defaultMember = searchParams.get("memberId");
     if (defaultMember) {
       form.reset({
@@ -96,13 +103,17 @@ export const CreateProjectPageView = ({ id }: Props) => {
   const onSubmit = async (data: CreateProjectFormSchemaType) => {
     mutation.mutate({ ...data, organizationId: id });
   };
-  const defaultMember = searchParams.get("memberId");
+  // const defaultMember = searchParams.get("memberId");
 
   if (isPending || !data) {
     return <LoadingScreen />;
   }
-  if (error) {
-    return <div>Something went wrong...</div>;
+  if (error && !isSuccess) {
+    if (error === NoOrganization) {
+      return <EmptyOrganization />;
+    } else {
+      return <ErrorCard title="Oops!!" description={error} />;
+    }
   }
 
   return (

@@ -1,4 +1,6 @@
 "use client";
+import { EmptyOrganization } from "@/components/empty-organization";
+import { ErrorCard } from "@/components/error-card";
 import { LoadingScreen } from "@/components/loading-screen";
 import OrganizationInfo from "@/components/organization-info";
 import { Button } from "@/components/ui/button";
@@ -11,6 +13,7 @@ import {
   FormMessage,
 } from "@/components/ui/form";
 import { Input } from "@/components/ui/input";
+import { NoOrganization } from "@/constant";
 import { axiosInstance } from "@/lib/axios-instance";
 import { useGetAdminOrganization } from "@/lib/common-query";
 import { organizationStore } from "@/zustand/member.store";
@@ -19,7 +22,7 @@ import { useMutation } from "@tanstack/react-query";
 import { AxiosError } from "axios";
 import { PlusIcon, Trash2Icon } from "lucide-react";
 import { useRouter } from "next/navigation";
-import React, { useState } from "react";
+import React, { useEffect, useState } from "react";
 import { useForm } from "react-hook-form";
 import { toast } from "sonner";
 import z from "zod";
@@ -75,6 +78,8 @@ const AddMembers = () => {
     data: organizationData,
     isPending: isOrganizationPending,
     error: organizationError,
+    isSuccess,
+    refetch,
   } = useGetAdminOrganization({ id: selectedOrganizationId!, isMember: true });
 
   // Mutations
@@ -110,6 +115,10 @@ const AddMembers = () => {
     mode: "onChange",
   });
 
+  useEffect(() => {
+    refetch();
+  }, []);
+
   const handleAddEmail = () => {
     const id = generateUniqueDigits();
     const members = form.getValues("members") || [];
@@ -129,6 +138,13 @@ const AddMembers = () => {
 
   if (isOrganizationPending) {
     return <LoadingScreen />;
+  }
+  if (organizationError && !isSuccess) {
+    if (organizationError === NoOrganization) {
+      return <EmptyOrganization />;
+    } else {
+      return <ErrorCard title="Oops!!" description={error} />;
+    }
   }
   return (
     <div>

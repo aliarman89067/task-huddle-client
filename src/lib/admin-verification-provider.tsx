@@ -4,6 +4,7 @@ import { LoadingScreen } from "@/components/loading-screen";
 import { useRouter } from "next/navigation";
 import { userStore } from "@/zustand/user.store";
 import { axiosInstance } from "./axios-instance";
+import { organizationStore } from "@/zustand/member.store";
 
 interface Props {
   children: ReactNode;
@@ -11,6 +12,7 @@ interface Props {
 
 export const AdminVerificationProvider = ({ children }: Props) => {
   const router = useRouter();
+  const { setOrganizationId } = organizationStore();
 
   const [isLoading, setIsLoading] = useState(true);
 
@@ -30,6 +32,7 @@ export const AdminVerificationProvider = ({ children }: Props) => {
           return;
         }
         setUser(data.data);
+        setOrganizationId(data?.organization?.[0]?.id || null);
         setIsLoading(false);
       } catch (error) {
         console.log(error);

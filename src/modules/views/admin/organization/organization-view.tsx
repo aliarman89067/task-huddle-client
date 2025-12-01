@@ -20,7 +20,12 @@ import { useGetAdminOrganization } from "@/lib/common-query";
 import { LoadingScreen } from "@/components/loading-screen";
 import { useQuery } from "@tanstack/react-query";
 import { axiosInstance } from "@/lib/axios-instance";
-import { useState } from "react";
+import { useEffect, useState } from "react";
+import { NoOrganization } from "@/constant";
+import { EmptyOrganization } from "@/components/empty-organization";
+import { ErrorCard } from "@/components/error-card";
+import { useGetQueryError } from "@/hooks/use-get-query-error";
+import { AxiosError } from "axios";
 
 interface Props {
   id: string;
@@ -39,6 +44,8 @@ export const OrganizationView = ({ id }: Props) => {
     data: organizationData,
     isPending: isOrganizationPending,
     error: organizationError,
+    isSuccess,
+    refetch,
   } = useGetAdminOrganization({ id, isMember: true });
 
   // Queries
@@ -54,16 +61,31 @@ export const OrganizationView = ({ id }: Props) => {
       );
       return res.data;
     },
-    enabled: !!id,
+    retry: 1,
+    refetchOnWindowFocus: !!id,
   });
 
-  if (!id) return;
+  useEffect(() => {
+    refetch();
+  }, []);
 
-  if (isOrganizationPending) {
+  if (isOrganizationPending || isProjectPending) {
     return <LoadingScreen />;
   }
-  if (organizationError) {
-    return <div>Something went wrong</div>;
+
+  if (organizationError && !isSuccess) {
+    if (organizationError === NoOrganization) {
+      return <EmptyOrganization />;
+    } else {
+      return <ErrorCard title="Oops!!" description={organizationError} />;
+    }
+  }
+
+  if (projectError) {
+    const { errorMessage } = useGetQueryError(
+      projectError as AxiosError<{ message: string }>
+    );
+    return <ErrorCard title="Oops!!" description={errorMessage} />;
   }
 
   return (

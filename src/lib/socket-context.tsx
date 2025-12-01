@@ -15,8 +15,8 @@ export const SocketProvider = ({ children }: { children: ReactNode }) => {
     // Check role from database
     const connectWs = async () => {
       const { data } = await axiosInstance.get("/auth/get-session");
-      let serverUri = "";
       const role = data.data.role;
+      let serverUri = "";
       if (role === "admin") {
         serverUri = process.env.NEXT_PUBLIC_ADMIN_SERVER_URI!;
       } else if (role === "member") {
@@ -27,8 +27,8 @@ export const SocketProvider = ({ children }: { children: ReactNode }) => {
       const ipData = await response.json();
       const ip = ipData.ip;
       // Connect ws to server on the base of role
-      const socketIo = io("https://backend.taskhuddle.live", {
-        path: `/${role}/socket.io`,
+      const socketIo = io(serverUri, {
+        // path: `/${role}/socket.io/`,
         transports: ["websocket"],
         withCredentials: true,
         forceNew: true,
@@ -37,16 +37,6 @@ export const SocketProvider = ({ children }: { children: ReactNode }) => {
           ip,
         },
       });
-      // const socketIo = io("https://backend.taskhuddle.live", {
-      //   path: `/${role}/socket.io`,
-      //   transports: ["websocket"],
-      //   withCredentials: true,
-      //   forceNew: true,
-      //   auth: {
-      //     role: data.data.role,
-      //     ip,
-      //   },
-      // });
 
       socketIo.on("connect", async () => {
         console.log("✅ Connected to admin socket server");

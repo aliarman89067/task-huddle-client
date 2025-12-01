@@ -1,5 +1,4 @@
 "use client";
-import OrganizationInfo from "@/components/organization-info";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Badge } from "@/components/ui/badge";
 import {
@@ -9,15 +8,12 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import { axiosInstance } from "@/lib/axios-instance";
-import {
-  useGetAdminOrganization,
-  useGetMemberOrganization,
-} from "@/lib/common-query";
+import { useGetMemberOrganization } from "@/lib/common-query";
 import { cn } from "@/lib/utils";
 import { organizationStore } from "@/zustand/member.store";
 import { useMutation, useQuery } from "@tanstack/react-query";
 import { AxiosError } from "axios";
-import { EllipsisVerticalIcon } from "lucide-react";
+import { EllipsisVerticalIcon, Loader2 } from "lucide-react";
 import { Dispatch, SetStateAction, useEffect } from "react";
 import { toast } from "sonner";
 
@@ -50,6 +46,18 @@ type ChatMembersResponse = {
     designation: string;
     socketId: string;
   }[];
+  rooms: {
+    id: string;
+    name: string;
+    image: string;
+    members: {
+      id: string;
+      name: string;
+      email: string;
+      image?: string;
+      designation: string;
+    }[];
+  }[];
 };
 
 interface Props {
@@ -75,6 +83,32 @@ interface Props {
   >;
   messages: ChatResponseType[];
   setMessages: Dispatch<SetStateAction<ChatResponseType[]>>;
+  selectedGroup: {
+    id: string;
+    name: string;
+    image: string | null;
+    members: {
+      id: string;
+      name: string;
+      email: string;
+      image?: string;
+      designation: string;
+    }[];
+  } | null;
+  setSelectedGroup: Dispatch<
+    SetStateAction<{
+      id: string;
+      name: string;
+      image: string | null;
+      members: {
+        id: string;
+        name: string;
+        email: string;
+        image?: string;
+        designation: string;
+      }[];
+    } | null>
+  >;
 }
 
 export const ChatSidebar = ({
@@ -82,6 +116,8 @@ export const ChatSidebar = ({
   setSelectedMember,
   messages,
   setMessages,
+  selectedGroup,
+  setSelectedGroup,
 }: Props) => {
   const { selectedOrganizationId } = organizationStore();
 
@@ -146,75 +182,31 @@ export const ChatSidebar = ({
     }
   };
 
-  if (isPending) {
-    return <div>Loading...</div>;
-  }
-  if (!membersData) return;
   return (
     <div className="w-[240px] bg-foreground shrink-0 rounded-xl h-[calc(100vh-110px)] overflow-y-scroll sidebar-scrollbar">
-      <div className="flex flex-col gap-3 px-3 py-4">
-        <div className="flex flex-col gap-1">
-          <div className="flex flex-col mb-3">
-            <Badge>Organization</Badge>
-            <h2 className="text-neutral-300 font-medium text-xl font-sansitia">
-              {data?.name}
-            </h2>
-          </div>
-          <h3 className="text-neutral-400 text-sm font-semibold">Admin</h3>
-          <button
-            onClick={() =>
-              handleSelectMember({ ...membersData.admin, isAdmin: true })
-            }
-            className={cn(
-              "relative flex gap-2 items-center bg-white/10 hover:bg-white/20 transition-all cursor-pointer rounded-lg px-2 py-2.5",
-              membersData.admin.id === selectedMember?.id
-                ? "bg-white/20"
-                : "bg-white/10"
-            )}
-          >
-            <DropdownMenu>
-              <DropdownMenuTrigger asChild>
-                <button className="absolute top-1 right-1 cursor-pointer px-0.5 py-0.5 rounded-xs bg-transparent hover:bg-neutral-800">
-                  <EllipsisVerticalIcon className="text-white size-3" />
-                </button>
-              </DropdownMenuTrigger>
-              <DropdownMenuContent>
-                <DropdownMenuItem
-                  variant="destructive"
-                  onClick={() =>
-                    deleteAllChatsMutation.mutate(membersData?.admin.id)
-                  }
-                >
-                  Delete all chats
-                </DropdownMenuItem>
-              </DropdownMenuContent>
-            </DropdownMenu>
-            <Avatar className="w-10 h-10">
-              <AvatarImage
-                src={membersData?.admin.image || ""}
-                alt={`${membersData?.admin.name} image`}
-              />
-              <AvatarFallback>
-                {membersData?.admin.name.substring(0, 1)}
-              </AvatarFallback>
-            </Avatar>
-            <div className="flex flex-col items-start">
-              <h3 className="text-white text-sm">{membersData?.admin.name}</h3>
-            </div>
-          </button>
+      {isPending ? (
+        <div className="flex items-center justify-center w-full h-full">
+          <Loader2 className="size-6 text-neutral-400 animate-spin" />
         </div>
-        <div className="flex flex-col gap-1">
-          <h3 className="text-neutral-400 text-sm font-semibold">Members</h3>
-          <div className="flex flex-col gap-2.5">
-            {membersData?.members.map((member, index) => (
+      ) : (
+        <div className="flex flex-col gap-3 px-3 py-4 h-full">
+          <div className="flex flex-col gap-1">
+            <div className="flex flex-col mb-3">
+              <Badge>Organization</Badge>
+              <h2 className="text-neutral-300 font-medium text-xl font-sansitia">
+                {data?.name}
+              </h2>
+            </div>
+            <h3 className="text-neutral-400 text-sm font-semibold">Admin</h3>
+            {membersData?.admin && (
               <button
-                key={index}
-                onClick={() =>
-                  handleSelectMember({ ...member, isAdmin: false })
-                }
+                onClick={() => {
+                  setSelectedGroup(null);
+                  handleSelectMember({ ...membersData?.admin, isAdmin: true });
+                }}
                 className={cn(
-                  "relative flex gap-2 items-center hover:bg-white/20 transition-all cursor-pointer rounded-lg px-2 py-2.5",
-                  member.id === selectedMember?.id
+                  "relative flex gap-2 items-center bg-white/10 hover:bg-white/20 transition-all cursor-pointer rounded-lg px-2 py-2.5",
+                  membersData.admin.id === selectedMember?.id
                     ? "bg-white/20"
                     : "bg-white/10"
                 )}
@@ -228,7 +220,9 @@ export const ChatSidebar = ({
                   <DropdownMenuContent>
                     <DropdownMenuItem
                       variant="destructive"
-                      onClick={() => deleteAllChatsMutation.mutate(member.id)}
+                      onClick={() =>
+                        deleteAllChatsMutation.mutate(membersData?.admin.id)
+                      }
                     >
                       Delete all chats
                     </DropdownMenuItem>
@@ -236,25 +230,132 @@ export const ChatSidebar = ({
                 </DropdownMenu>
                 <Avatar className="w-10 h-10">
                   <AvatarImage
-                    src={member.image || ""}
-                    alt={`${member.name} image`}
+                    src={membersData?.admin.image || ""}
+                    alt={`${membersData?.admin.name} image`}
                   />
-                  <AvatarFallback>{member.name.substring(0, 1)}</AvatarFallback>
+                  <AvatarFallback>
+                    {membersData?.admin.name.substring(0, 1)}
+                  </AvatarFallback>
                 </Avatar>
                 <div className="flex flex-col items-start">
-                  <h3 className="text-white text-sm">{member.name}</h3>
-                  <span className="text-neutral-300 text-xs line-clamp-1">
-                    Lorem ipsum dolor sit amet consectetur adipisicing elit.
-                    Officia at, reprehenderit expedita odit laudantium similique
-                    ratione corrupti tempore eveniet aspernatur ducimus quae?
-                    Eius esse, fuga eveniet excepturi adipisci velit sunt.
-                  </span>
+                  <h3 className="text-white text-sm">
+                    {membersData?.admin.name}
+                  </h3>
                 </div>
               </button>
-            ))}
+            )}
           </div>
+          {membersData && membersData.rooms.length > 0 && (
+            <>
+              <h3 className="text-neutral-400 text-sm font-semibold">Groups</h3>
+              <div className="flex flex-col gap-2.5">
+                {membersData?.rooms.map((room, index) => (
+                  <button
+                    key={index}
+                    onClick={() => {
+                      setSelectedMember(null);
+                      setSelectedGroup({ ...room });
+                    }}
+                    className={cn(
+                      "relative flex gap-2 items-center hover:bg-white/20 transition-all cursor-pointer rounded-lg px-2 py-2.5",
+                      room.id === selectedGroup?.id
+                        ? "bg-white/20"
+                        : "bg-white/10"
+                    )}
+                  >
+                    <DropdownMenu>
+                      <DropdownMenuTrigger asChild>
+                        <button className="absolute top-1 right-1 cursor-pointer px-0.5 py-0.5 rounded-xs bg-transparent hover:bg-neutral-800">
+                          <EllipsisVerticalIcon className="text-white size-3" />
+                        </button>
+                      </DropdownMenuTrigger>
+                      <DropdownMenuContent>
+                        <DropdownMenuItem
+                          variant="destructive"
+                          // Delete All group chats
+                          onClick={() => {}}
+                        >
+                          Delete All Chats
+                        </DropdownMenuItem>
+                        <DropdownMenuItem
+                          variant="destructive"
+                          // Delete group
+                          onClick={() => {}}
+                        >
+                          Delete group
+                        </DropdownMenuItem>
+                      </DropdownMenuContent>
+                    </DropdownMenu>
+                    <Avatar className="w-10 h-10">
+                      <AvatarImage src={room.image || ""} alt={` image`} />
+                      <AvatarFallback>
+                        {room.name.substring(0, 1)}
+                      </AvatarFallback>
+                    </Avatar>
+                    <div className="flex flex-col items-start">
+                      <h3 className="text-white text-sm">{room.name}</h3>
+                    </div>
+                  </button>
+                ))}
+              </div>
+            </>
+          )}
+          {membersData &&
+            membersData?.members.length > 0 &&
+            membersData?.members.map((member, index) => (
+              <div className="flex flex-col gap-1 h-full">
+                <h3 className="text-neutral-400 text-sm font-semibold">
+                  Members
+                </h3>
+                <div className="flex flex-col gap-2.5 h-full">
+                  <button
+                    key={index}
+                    onClick={() => {
+                      setSelectedGroup(null);
+                      handleSelectMember({ ...member, isAdmin: false });
+                    }}
+                    className={cn(
+                      "relative flex gap-2 items-center hover:bg-white/20 transition-all cursor-pointer rounded-lg px-2 py-2.5",
+                      member.id === selectedMember?.id
+                        ? "bg-white/20"
+                        : "bg-white/10"
+                    )}
+                  >
+                    <DropdownMenu>
+                      <DropdownMenuTrigger asChild>
+                        <button className="absolute top-1 right-1 cursor-pointer px-0.5 py-0.5 rounded-xs bg-transparent hover:bg-neutral-800">
+                          <EllipsisVerticalIcon className="text-white size-3" />
+                        </button>
+                      </DropdownMenuTrigger>
+                      <DropdownMenuContent>
+                        <DropdownMenuItem
+                          variant="destructive"
+                          onClick={() =>
+                            deleteAllChatsMutation.mutate(member.id)
+                          }
+                        >
+                          Delete all chats
+                        </DropdownMenuItem>
+                      </DropdownMenuContent>
+                    </DropdownMenu>
+                    <Avatar className="w-10 h-10">
+                      <AvatarImage
+                        src={member.image || ""}
+                        alt={`${member.name} image`}
+                      />
+                      <AvatarFallback>
+                        {member.name.substring(0, 1)}
+                      </AvatarFallback>
+                    </Avatar>
+                    <div className="flex flex-col items-start">
+                      <h3 className="text-white text-sm">{member.name}</h3>
+                    </div>
+                  </button>
+                </div>
+              </div>
+            ))}
         </div>
-      </div>
+      )}
     </div>
   );
 };

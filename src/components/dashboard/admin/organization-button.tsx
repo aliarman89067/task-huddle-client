@@ -133,7 +133,7 @@ export const OrganizationButton = ({
                 </p>
               </div>
             )}
-            {organizationData.map((item: any) => (
+            {organizationData?.map((item: any) => (
               <button
                 key={item.id}
                 onClick={() => handleOrganizationChange(item.id)}

@@ -1,5 +1,7 @@
 import { useQuery } from "@tanstack/react-query";
 import { axiosInstance } from "./axios-instance";
+import { AxiosError } from "axios";
+import { useEffect, useState } from "react";
 
 interface UseGetAdminOrganizationProps {
   id: string;
@@ -10,7 +12,33 @@ export const useGetAdminOrganization = ({
   id,
   isMember,
 }: UseGetAdminOrganizationProps) => {
-  const { data, error, isPending } = useQuery({
+  // const [data, setData] = useState<any>(null);
+  // const [isPending, setIsPending] = useState(false);
+  // const [isSuccess, setIsSuccess] = useState(false);
+  // const [error, setError] = useState("");
+
+  // const getOrganization = async () => {
+  //   if (!id) return;
+  //   try {
+  //     const { data } = await axiosInstance.get(
+  //       `/admin/organizations/${id}?${isMember && "isMember=true"}`
+  //     );
+  //     setData(data);
+  //   } catch (error) {
+  //     const axiosError = error as AxiosError<{ message: string }>;
+  //     const errorMessage =
+  //       axiosError?.response?.data.message || "Something went wrong";
+  //     setError(errorMessage);
+  //   }
+  // };
+  // useEffect(() => {
+  //   getOrganization();
+  // }, [id]);
+  // const refetch = () => {
+  //   getOrganization();
+  // };
+
+  const { data, error, isPending, refetch, isSuccess } = useQuery({
     queryKey: ["get-organization"],
     queryFn: async () => {
       const res = await axiosInstance.get(
@@ -18,12 +46,20 @@ export const useGetAdminOrganization = ({
       );
       return res.data.organization;
     },
-    enabled: !!id,
+    retry: id ? 1 : false,
+    refetchOnWindowFocus: !!id,
+    // enabled: !!id,
   });
+  const axiosError = error as AxiosError<{ message: string }>;
+  const errorMessage =
+    axiosError?.response?.data.message || "Something went wrong";
+
   return {
     data,
-    error,
+    error: errorMessage,
     isPending,
+    refetch,
+    isSuccess,
   };
 };
 

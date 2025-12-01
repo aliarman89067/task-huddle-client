@@ -21,6 +21,7 @@ import { toast } from "sonner";
 import { OrganizationButton } from "./organization-button";
 import { organizationStore } from "@/zustand/member.store";
 import { SettingsButton } from "./settings-button";
+import { Badge } from "@/components/ui/badge";
 
 export const AdminSidebar = () => {
   const router = useRouter();
@@ -108,6 +109,7 @@ export const AdminSidebar = () => {
       </div>
       <Separator className="bg-neutral-800 my-2" />
       <div className="flex flex-col gap-4">
+        <Badge>Admin</Badge>
         <div
           className={cn(
             "flex items-center gap-2",
@@ -120,6 +122,7 @@ export const AdminSidebar = () => {
               {user.name.slice(0, 1)}
             </AvatarFallback>
           </Avatar>
+
           <HideOnExpand isExpand={isExpand}>
             <div className="flex flex-col">
               <h3 className="text-white font-medium text-base">{user.name}</h3>

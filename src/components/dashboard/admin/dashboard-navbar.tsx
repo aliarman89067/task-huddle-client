@@ -1,5 +1,6 @@
 "use client";
 import { UserButton } from "@/components/user-button";
+import { userStore } from "@/zustand/user.store";
 import {
   BellIcon,
   CloudIcon,
@@ -11,30 +12,31 @@ import {
 } from "lucide-react";
 import { useState } from "react";
 
-function getTimeOfDay() {
-  const hour = new Date().getHours();
-  if (hour >= 5 && hour < 12)
-    return { greeting: "Good Morning", icon: SunIcon };
-  if (hour >= 12 && hour < 17)
-    return { greeting: "Good Afternoon", icon: SunDimIcon };
-  if (hour >= 17 && hour < 21)
-    return { greeting: "Good Evening", icon: CloudyIcon };
-  return { greeting: "Good Night", icon: MoonIcon };
-}
+// function getTimeOfDay() {
+//   const hour = new Date().getHours();
+//   if (hour >= 5 && hour < 12)
+//     return { greeting: "Good Morning", icon: SunIcon };
+//   if (hour >= 12 && hour < 17)
+//     return { greeting: "Good Afternoon", icon: SunDimIcon };
+//   if (hour >= 17 && hour < 21)
+//     return { greeting: "Good Evening", icon: CloudyIcon };
+//   return { greeting: "Good Night", icon: MoonIcon };
+// }
 
 export const DashboardNavbar = () => {
-  const [timeOfDay] = useState(getTimeOfDay());
+  // const [timeOfDay] = useState(getTimeOfDay());
+  const { user } = userStore();
 
   return (
-    <div className="flex items-center justify-between pr-5 py-2 border-b border-neutral-200">
+    <div className="flex items-center justify-between pr-5 h-[75px] border-b border-neutral-200">
       <div className="flex flex-col">
         <div className="flex items-center gap-1">
           <h1 className="text-2xl font-semibold text-neutral-600 font-sansitia">
-            {timeOfDay.greeting}
+            Welcome Back
           </h1>
-          <timeOfDay.icon className="size-6 text-neutral-600" />
+          {/* <timeOfDay.icon className="size-6 text-neutral-600" /> */}
         </div>
-        <span className="text-base text-neutral-500">Ali arman</span>
+        <span className="text-base text-neutral-500">{user?.name}</span>
       </div>
       <div className="flex items-center gap-3">
         <div className="flex gap-3 items-center">

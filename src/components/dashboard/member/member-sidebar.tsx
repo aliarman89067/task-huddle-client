@@ -23,7 +23,7 @@ import {
 import Image from "next/image";
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
-import React, { ReactNode, useState } from "react";
+import React, { ReactNode, useEffect, useState } from "react";
 import { toast } from "sonner";
 import { organizationStore } from "@/zustand/member.store";
 
@@ -76,7 +76,8 @@ const MemberSidebar = () => {
   if (!user || user.role !== "member") {
     return;
   }
-  if (isOrganizationPending || !organizationData) return;
+  // if (isOrganizationPending || !organizationData) return;
+
   return (
     <div
       className={cn(
@@ -129,8 +130,16 @@ const MemberSidebar = () => {
           </Avatar>
           <HideOnExpand isExpand={isExpand}>
             <div className="flex flex-col">
-              <h3 className="text-white font-medium text-base">{user.name}</h3>
-              <span className="text-gray-300 text-xs">{user.email}</span>
+              <h3 className="text-white font-medium text-base">
+                {user.name.length > 20
+                  ? `${user.name.substring(0, 20)}...`
+                  : user.name}
+              </h3>
+              <span className="text-gray-300 text-xs">
+                {user.email.length > 20
+                  ? `${user.email.substring(0, 20)}...`
+                  : user.email}
+              </span>
             </div>
           </HideOnExpand>
         </div>
@@ -139,7 +148,7 @@ const MemberSidebar = () => {
       <div className="flex flex-col gap-4">
         {MEMBER_SIDEBAR_LINKS.map((item) => {
           const isDropdown = item.isDropdown;
-          if (isDropdown) {
+          if (isDropdown && organizationData) {
             return (
               <Select
                 key={item.id}

@@ -39,6 +39,16 @@ import {
   DropdownMenuItem,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
+import { useGetQueryError } from "@/hooks/use-get-query-error";
+import { ErrorCard } from "@/components/error-card";
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
+import { Badge } from "@/components/ui/badge";
 
 type ChatResponseType = {
   id: string;
@@ -77,17 +87,45 @@ interface Props {
   >;
   messages: ChatResponseType[];
   setMessages: Dispatch<SetStateAction<ChatResponseType[]>>;
+  selectedGroup: {
+    id: string;
+    name: string;
+    image: string | null;
+    members: {
+      id: string;
+      name: string;
+      email: string;
+      image?: string;
+      designation: string;
+    }[];
+  } | null;
+  setSelectedGroup: Dispatch<
+    SetStateAction<{
+      id: string;
+      name: string;
+      image: string | null;
+      members: {
+        id: string;
+        name: string;
+        email: string;
+        image?: string;
+        designation: string;
+      }[];
+    } | null>
+  >;
 }
 
 export const ChatBody = ({
   organizationId,
   selectedMember,
-  setSelectedMember,
+  selectedGroup,
+  setSelectedGroup,
   messages,
   setMessages,
 }: Props) => {
   const { user } = userStore();
   const emojiDivRef = useRef<HTMLDivElement | null>(null);
+  const [isMembersDialogOpen, setIsMembersDialogOpen] = useState(false);
 
   const [message, setMessage] = useState("");
   const [images, setImages] = useState<
@@ -110,6 +148,7 @@ export const ChatBody = ({
   const {
     data: chatsData,
     isPending: isChatDataPending,
+    error: chatDataError,
     isFetching,
     refetch,
   } = useQuery({
@@ -120,6 +159,26 @@ export const ChatBody = ({
       );
       return res.data as ChatResponseType[];
     },
+    retry: !!selectedMember?.id,
+    enabled: !!selectedMember?.id,
+    refetchOnWindowFocus: false,
+  });
+  const {
+    data: groupChatsData,
+    isPending: isGroupChatDataPending,
+    error: groupChatDataError,
+    isFetching: isGroupFetching,
+    refetch: groupRefetch,
+  } = useQuery({
+    queryKey: ["get-admin-group-chats"],
+    queryFn: async () => {
+      const res = await axiosInstance.get(
+        `/admin/chats/group/${selectedGroup?.id}/${organizationId}`
+      );
+      return res.data as ChatResponseType[];
+    },
+    retry: !!selectedGroup?.id,
+    enabled: !!selectedGroup?.id,
     refetchOnWindowFocus: false,
   });
   // Mutations
@@ -140,21 +199,34 @@ export const ChatBody = ({
   });
 
   useEffect(() => {
-    refetch();
-  }, [selectedMember]);
+    if (selectedMember) {
+      refetch();
+      setMessages([]);
+    }
+    if (selectedGroup) {
+      groupRefetch();
+      setMessages([]);
+    }
+  }, [selectedMember, selectedGroup]);
 
   useEffect(() => {
-    if (chatsData) {
+    if (chatsData && selectedMember) {
       setMessages(chatsData);
     }
-  }, [chatsData, isFetching]);
+    if (groupChatsData && selectedGroup) {
+      setMessages(groupChatsData);
+    }
+  }, [chatsData, groupChatsData, isFetching, isGroupFetching]);
 
   useEffect(() => {
     const handleMessageReceive = (
-      data: ChatResponseType & { toId: string }
+      data: ChatResponseType & { toId: string; roomId: string }
     ) => {
-      const isValid = data.toId === selectedMember?.id;
-      if (!isValid) return;
+      const isValidMember = data.toId === selectedMember?.id;
+      if (!isValidMember && selectedMember?.id) return;
+      const isValidGroup = data.roomId === selectedGroup?.id;
+      if (!isValidGroup && selectedGroup?.id) return;
+
       const isExisting = messages.find(
         (message) => message.chatId === data.chatId
       );
@@ -234,24 +306,28 @@ export const ChatBody = ({
       toast.error("User not exist!");
       return;
     }
-    if (!selectedMember) {
-      toast.error("Please select an member first!");
+    if (!selectedMember && !selectedGroup) {
+      toast.error("Please select an member/group first!");
       return;
     }
     const chatId = uuid();
     if (images.length > 0) {
-      sendImageMessage(socket, chatId);
+      sendImageMessage(socket, chatId, !!selectedGroup?.id);
     } else if (files.length > 0) {
-      sendFileMessage(socket, chatId);
+      sendFileMessage(socket, chatId, !!selectedGroup?.id);
     } else {
-      sendTextMessage(socket, chatId);
+      sendTextMessage(socket, chatId, !!selectedGroup?.id);
     }
   };
 
-  const sendTextMessage = (socket: Socket, chatId: string) => {
+  const sendTextMessage = (
+    socket: Socket,
+    chatId: string,
+    isGroup: boolean
+  ) => {
     if (!user) return;
     socket.emit(
-      "message",
+      isGroup ? "group-message" : "message",
       JSON.stringify({
         message,
         chatId,
@@ -260,10 +336,13 @@ export const ChatBody = ({
         name: user.name,
         image: user.image,
         images: [],
+        files: [],
         email: user.email,
         toId: selectedMember?.id,
+        ...(selectedGroup?.id && { roomId: selectedGroup.id }),
+        members: selectedGroup?.members || null,
         createdAt: new Date().toISOString(),
-        type: "ADMIN_MEMBER",
+        type: isGroup ? "ADMIN_MEMBERS" : "ADMIN_MEMBER",
       })
     );
     setMessage("");
@@ -285,7 +364,11 @@ export const ChatBody = ({
     ]);
   };
 
-  const sendImageMessage = async (socket: Socket, chatId: string) => {
+  const sendImageMessage = async (
+    socket: Socket,
+    chatId: string,
+    isGroup: boolean
+  ) => {
     if (!user) return;
     setMessage("");
     setMessages((prev) => [
@@ -346,7 +429,7 @@ export const ChatBody = ({
       );
       setIsUploading((prev) => prev.filter((item) => item.chatId !== chatId));
       socket.emit(
-        "message",
+        isGroup ? "group-message" : "message",
         JSON.stringify({
           message,
           chatId,
@@ -357,14 +440,20 @@ export const ChatBody = ({
           images: imagesUrl,
           organizationId,
           email: user.email,
+          ...(selectedGroup?.id && { roomId: selectedGroup.id }),
+          members: selectedGroup?.members || null,
           toId: selectedMember?.id,
-          type: "ADMIN_MEMBER",
+          type: isGroup ? "ADMIN_MEMBERS" : "ADMIN_MEMBER",
         })
       );
     }
   };
 
-  const sendFileMessage = async (socket: Socket, chatId: string) => {
+  const sendFileMessage = async (
+    socket: Socket,
+    chatId: string,
+    isGroup: boolean
+  ) => {
     if (!user) return;
     setMessage("");
     setMessages((prev) => [
@@ -439,7 +528,7 @@ export const ChatBody = ({
       );
       setIsUploading((prev) => prev.filter((item) => item.chatId !== chatId));
       socket.emit(
-        "message",
+        isGroup ? "group-message" : "message",
         JSON.stringify({
           message,
           chatId,
@@ -451,7 +540,9 @@ export const ChatBody = ({
           images: [],
           email: user.email,
           toId: selectedMember?.id,
-          type: "ADMIN_MEMBER",
+          ...(selectedGroup?.id && { roomId: selectedGroup.id }),
+          members: selectedGroup?.members || null,
+          type: isGroup ? "ADMIN_MEMBERS" : "ADMIN_MEMBER",
         })
       );
     }
@@ -526,33 +617,79 @@ export const ChatBody = ({
     }
   };
 
+  if (chatDataError) {
+    const { errorMessage } = useGetQueryError(
+      chatDataError as AxiosError<{ message: string }>
+    );
+    return <ErrorCard title="Oops!" description={errorMessage} />;
+  }
+
   return (
     <div className="w-full bg-neutral-100 shadow-lg border border-neutral-300 rounded-xl h-[calc(100vh-110px)] sidebar-scrollbar flex flex-col">
+      {selectedGroup && (
+        <GroupMembersDialog
+          members={selectedGroup.members}
+          isOpen={isMembersDialogOpen}
+          setIsOpen={setIsMembersDialogOpen}
+        />
+      )}
       <div className="w-full bg-white border-b border-neutral-300 py-3 px-5 flex items-center justify-between rounded-t-xl">
-        <div className="flex items-center gap-2">
-          <div className="relative w-10 h-10">
-            <Avatar className="w-10 h-10">
-              <AvatarImage
-                src={selectedMember?.image || ""}
-                alt={`${selectedMember?.name} image`}
-              />
-              <AvatarFallback>
-                {selectedMember?.name.substring(0, 1)}
-              </AvatarFallback>
-            </Avatar>
-            <div className="w-3 h-3 rounded-full bg-green-400 absolute top-0 left-0 p-0.5">
-              <div className="w-full h-full rounded-full bg-green-300"></div>
+        {selectedMember && (
+          <div className="flex items-center gap-2">
+            <div className="relative w-10 h-10">
+              <Avatar className="w-10 h-10">
+                <AvatarImage
+                  src={selectedMember?.image || ""}
+                  alt={`${selectedMember?.name} image`}
+                />
+                <AvatarFallback>
+                  {selectedMember?.name.substring(0, 1)}
+                </AvatarFallback>
+              </Avatar>
+              <div className="w-3 h-3 rounded-full bg-green-400 absolute top-0 left-0 p-0.5">
+                <div className="w-full h-full rounded-full bg-green-300"></div>
+              </div>
+            </div>
+            <div className="flex flex-col">
+              <span className="text-neutral-800 text-base font-semibold">
+                {selectedMember?.name}
+              </span>
+              <span className="text-neutral-700 text-xs">
+                {selectedMember?.designation || ""}
+              </span>
             </div>
           </div>
-          <div className="flex flex-col">
-            <span className="text-neutral-800 text-base font-semibold">
-              {selectedMember?.name}
-            </span>
-            <span className="text-neutral-700 text-xs">
-              {selectedMember?.designation || ""}
-            </span>
+        )}
+        {selectedGroup && (
+          <div className="flex items-center gap-2">
+            <div className="relative w-10 h-10">
+              <Avatar className="w-10 h-10">
+                <AvatarImage
+                  src={selectedGroup?.image || ""}
+                  alt={`${selectedGroup?.name} image`}
+                />
+                <AvatarFallback>
+                  {selectedGroup?.name.substring(0, 1)}
+                </AvatarFallback>
+              </Avatar>
+              <div className="w-3 h-3 rounded-full bg-green-400 absolute top-0 left-0 p-0.5">
+                <div className="w-full h-full rounded-full bg-green-300"></div>
+              </div>
+            </div>
+            <div className="flex flex-col">
+              <span className="text-neutral-800 text-base font-semibold">
+                {selectedGroup?.name}
+              </span>
+              <span
+                onClick={() => setIsMembersDialogOpen(true)}
+                className="text-neutral-600 text-sm underline underline-offset-2 cursor-pointer"
+              >
+                {selectedGroup?.members.length} Member
+                {selectedGroup?.members.length > 1 && "s"}
+              </span>
+            </div>
           </div>
-        </div>
+        )}
         <DropdownMenu>
           <DropdownMenuTrigger asChild>
             <Button variant="outline" size="sm">
@@ -571,7 +708,7 @@ export const ChatBody = ({
           </DropdownMenuContent>
         </DropdownMenu>
       </div>
-      {isFetching ? (
+      {isFetching || isGroupFetching ? (
         <LoadingScreen />
       ) : (
         <>
@@ -583,7 +720,13 @@ export const ChatBody = ({
             />
           ) : (
             <div className="w-full h-full flex items-center justify-center text-neutral-500 text-sm text-center">
-              You have no chats with {selectedMember?.name}
+              {selectedMember?.id ? (
+                <>You have no chats with {selectedMember?.name}</>
+              ) : selectedGroup?.id ? (
+                <>This group have no chats yet.</>
+              ) : (
+                "You have no chats"
+              )}
             </div>
           )}
         </>
@@ -674,5 +817,56 @@ export const ChatBody = ({
         </Button>
       </div>
     </div>
+  );
+};
+
+interface GroupMembersDialogProps {
+  isOpen: boolean;
+  setIsOpen: Dispatch<SetStateAction<boolean>>;
+  members: {
+    id: string;
+    name: string;
+    email: string;
+    image?: string;
+    designation: string;
+  }[];
+}
+
+export const GroupMembersDialog = ({
+  isOpen,
+  setIsOpen,
+  members,
+}: GroupMembersDialogProps) => {
+  return (
+    <Dialog open={isOpen} onOpenChange={setIsOpen}>
+      <DialogContent>
+        <DialogHeader>
+          <DialogTitle>Group Member</DialogTitle>
+          <DialogDescription>
+            This group have {members.length} members{members.length > 1 && "s"}
+          </DialogDescription>
+        </DialogHeader>
+        <div className="mt-4 flex flex-col gap-1.5 w-full">
+          {members.map((member) => (
+            <div key={member.id} className="flex items-center gap-2 w-full">
+              <Avatar className="w-12 h-12">
+                <AvatarImage
+                  src={member.image || ""}
+                  alt={`${member.name} profile image`}
+                />
+                <AvatarFallback>{member.name.substring(0, 1)}</AvatarFallback>
+              </Avatar>
+              <div className="flex flex-col">
+                <Badge>{member.designation}</Badge>
+                <h2 className="text-foreground font-semibold text-base">
+                  {member.name}
+                </h2>
+                <span className="text-neutral-600 text-sm">{member.email}</span>
+              </div>
+            </div>
+          ))}
+        </div>
+      </DialogContent>
+    </Dialog>
   );
 };
