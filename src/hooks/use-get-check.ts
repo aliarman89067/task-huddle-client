@@ -30,7 +30,8 @@ export const useGetCheck = (organizationId: string) => {
       const res = await axiosInstance.get(`/member/check/${organizationId}`);
       return res.data as checkType;
     },
-    retry: organizationId ? true : false,
+    retry: false,
+    refetchOnWindowFocus: false,
   });
 
   return {

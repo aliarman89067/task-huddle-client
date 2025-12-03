@@ -155,7 +155,7 @@ export function CheckInOutView() {
     const diff =
       new Date(checkOutTime).getTime() - new Date(checkInTime).getTime();
     const hours = Math.floor(diff / 3600000);
-    const minutes = Math.floor((diff % 360000) / 60000);
+    const minutes = Math.floor((diff % 3600000) / 60000);
     const seconds = Math.floor((diff % 60000) / 1000);
     return `
             ${String(hours).padStart(2, "0")}
@@ -181,7 +181,7 @@ export function CheckInOutView() {
     }
     console.log("Diff ", diff);
     const hours = Math.floor(diff / 3600000);
-    const minutes = Math.floor((diff % 360000) / 60000);
+    const minutes = Math.floor((diff % 3600000) / 60000);
     const seconds = Math.floor((diff % 60000) / 1000);
     return `
             ${String(hours).padStart(2, "0")}

@@ -189,9 +189,8 @@ export function MemberAttendanceHistory({ organizationId }: Props) {
     if (diff === 0) {
       return "-";
     }
-    console.log("Diff ", diff);
     const hours = Math.floor(diff / 3600000);
-    const minutes = Math.floor((diff % 360000) / 60000);
+    const minutes = Math.floor((diff % 3600000) / 60000);
     const seconds = Math.floor((diff % 60000) / 1000);
     return `
             ${String(hours).padStart(2, "0")}

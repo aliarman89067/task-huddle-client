@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { ArrowRightIcon, LoaderIcon } from "lucide-react";
 import { toast } from "sonner";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
@@ -31,6 +31,9 @@ export function CheckInBox({ organizationId }: Props) {
   const { selectedOrganizationId } = organizationStore();
   const { check, isPending, refetch } = useGetCheck(selectedOrganizationId!);
 
+  const checkIntervalRef = useRef<any>(null);
+  const BreakIntervalRef = useRef<any>(null);
+
   // Mutations
   const checkMutation = useMutation({
     mutationFn: async () => {
@@ -58,6 +61,8 @@ export function CheckInBox({ organizationId }: Props) {
       } else if (data.type === "checkOut") {
         setIsCheckedIn(false);
         setIsBreakIn(false);
+        setBreakInTime(null); // Add this
+        setBreakInTimeElapsed("00:00:00"); // Add this
         toast.success(data.message, {
           description: `Total time ${checkInTimeElapsed}`,
         });
@@ -101,9 +106,11 @@ export function CheckInBox({ organizationId }: Props) {
       if (data.type === "BreakIn") {
         setIsBreakIn(true);
         setBreakInTime(new Date(data.breakInTime));
+        setBreakInTimeElapsed("00:00:00");
         toast.success(data.message);
       } else if (data.type === "BreakOut") {
         setIsBreakIn(false);
+        setBreakInTime(null);
         toast.success(data.message, {
           description: `Total time ${breakInTimeElapsed}`,
         });
@@ -134,6 +141,17 @@ export function CheckInBox({ organizationId }: Props) {
   });
 
   useEffect(() => {
+    return () => {
+      if (checkIntervalRef.current) {
+        clearInterval(checkIntervalRef.current);
+      }
+      if (BreakIntervalRef.current) {
+        clearInterval(BreakIntervalRef.current);
+      }
+    };
+  }, []);
+
+  useEffect(() => {
     if (check && check?.breaks[0]?.type === "BreakIn") {
       setIsBreakIn(true);
       setIsCheckedIn(true);
@@ -147,7 +165,7 @@ export function CheckInBox({ organizationId }: Props) {
 
   useEffect(() => {
     if (isCheckedIn && checkedInTime) {
-      const intervalId = setInterval(() => {
+      checkIntervalRef.current = setInterval(() => {
         const diff = Date.now() - checkedInTime.getTime();
 
         const hours = Math.floor(diff / 3600000);
@@ -162,28 +180,46 @@ export function CheckInBox({ organizationId }: Props) {
         );
       }, 1000);
 
-      return () => clearInterval(intervalId);
+      return () => {
+        clearInterval(checkIntervalRef.current);
+        checkIntervalRef.current = null;
+      };
+    } else {
+      clearInterval(checkIntervalRef.current);
+      checkIntervalRef.current = null;
     }
   }, [isCheckedIn, checkedInTime]);
 
   useEffect(() => {
     if (isBreakIn && breakInTime) {
-      const intervalId = setInterval(() => {
+      BreakIntervalRef.current = setInterval(() => {
         const diff = Date.now() - breakInTime.getTime();
         const hours = Math.floor(diff / 3600000);
-        const minutes = Math.floor((diff % 360000) / 60000);
+        const minutes = Math.floor((diff % 3600000) / 60000);
         const seconds = Math.floor((diff % 60000) / 1000);
+
         setBreakInTimeElapsed(`
-            ${String(hours).padStart(2, "0")}
-            :
-            ${String(minutes).padStart(2, "0")}
+        ${String(hours).padStart(2, "0")}
+        :
+        ${String(minutes).padStart(2, "0")}
         :
         ${String(seconds).padStart(2, "0")}
-          `);
+      `);
       }, 1000);
+
+      // Clear interval when break ends
       return () => {
-        clearInterval(intervalId);
+        if (BreakIntervalRef.current) {
+          clearInterval(BreakIntervalRef.current);
+          BreakIntervalRef.current = null;
+        }
       };
+    } else {
+      // Also clear interval when not in break
+      if (BreakIntervalRef.current) {
+        clearInterval(BreakIntervalRef.current);
+        BreakIntervalRef.current = null;
+      }
     }
   }, [isBreakIn, breakInTime]);
 

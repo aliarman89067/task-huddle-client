@@ -100,9 +100,8 @@ export const CheckInDetailsDialog = ({
     if (diff === 0) {
       return "-";
     }
-    console.log("Diff ", diff);
     const hours = Math.floor(diff / 3600000);
-    const minutes = Math.floor((diff % 360000) / 60000);
+    const minutes = Math.floor((diff % 3600000) / 60000);
     const seconds = Math.floor((diff % 60000) / 1000);
     return `
             ${String(hours).padStart(2, "0")}
@@ -247,7 +246,7 @@ export const CheckInDetailsDialog = ({
                   {checkInData?.breaks?.length || 0} Breaks
                 </span>
 
-                {getTotalBreaksTime(checkInData.breaks) === "-" ? (
+                {!checkInData.breaks || checkInData.breaks.length === 0 ? (
                   <h3 className="text-xl text-center font-semibold text-neutral-700">
                     No Breaks
                   </h3>
