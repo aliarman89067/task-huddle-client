@@ -14,7 +14,7 @@ import { getFileThumbnail } from "@/lib/utils";
 import { userStore } from "@/zustand/user.store";
 import { toast } from "sonner";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
-import { useMutation, useQuery } from "@tanstack/react-query";
+import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { axiosInstance } from "@/lib/axios-instance";
 import { LoadingScreen } from "@/components/loading-screen";
 import { v4 as uuid } from "uuid";
@@ -122,6 +122,7 @@ export const ChatBody = ({
   selectedGroup,
   setSelectedGroup,
 }: Props) => {
+  const query = useQueryClient();
   const { user } = userStore();
   const emojiDivRef = useRef<HTMLDivElement | null>(null);
   const [isMembersDialogOpen, setIsMembersDialogOpen] = useState(false);
@@ -202,6 +203,26 @@ export const ChatBody = ({
       toast.error(message);
     },
   });
+  const leaveGroupMutation = useMutation({
+    mutationFn: async (roomId: string) => {
+      const respose = await axiosInstance.post("/member/groups/leave", {
+        roomId,
+      });
+      return respose.data;
+    },
+    onSuccess: () => {
+      toast.success("Group leaved successfully");
+      query.invalidateQueries({
+        queryKey: ["get-chat-members"],
+      });
+    },
+    onError: (error: AxiosError<{ message: string }>) => {
+      const errorMessage =
+        error?.response?.data?.message || "Something went wrong!";
+      toast.error(errorMessage);
+    },
+  });
+
   useEffect(() => {
     if (selectedMember) {
       refetch();
@@ -221,32 +242,36 @@ export const ChatBody = ({
       setMessages(groupChatsData);
     }
   }, [chatsData, groupChatsData, isFetching, isGroupFetching]);
-
+  // console.log(selectedMember);
   useEffect(() => {
     const handleMessageReceive = (
       data: ChatResponseType & { toId: string; roomId: string }
     ) => {
-      const isValidMember = data.toId === selectedMember?.id;
-      if (!isValidMember && selectedMember?.id) return;
-      const isValidGroup = data.roomId === selectedGroup?.id;
-      if (!isValidGroup && selectedGroup?.id) return;
+      const isValidMember =
+        data.toId === selectedMember?.id && selectedMember?.id;
+      const isValidGroup =
+        data.roomId === selectedGroup?.id && selectedGroup?.id;
 
-      const isExisting = messages.find(
-        (message) => message.chatId === data.chatId
-      );
-      if (isExisting) {
-        setMessages((prev) => {
-          if (!prev) return prev;
-          return prev.map((message) => {
-            if (message.chatId === data.chatId) {
-              return data;
-            } else {
-              return message;
-            }
+      console.log(selectedMember);
+      console.log(data.toId);
+      if (isValidMember || isValidGroup) {
+        const isExisting = messages.find(
+          (message) => message.chatId === data.chatId
+        );
+        if (isExisting) {
+          setMessages((prev) => {
+            if (!prev) return prev;
+            return prev.map((message) => {
+              if (message.chatId === data.chatId) {
+                return data;
+              } else {
+                return message;
+              }
+            });
           });
-        });
-      } else {
-        setMessages((prev) => [...prev, data]);
+        } else {
+          setMessages((prev) => [...prev, data]);
+        }
       }
     };
     const handleIPError = ({ chatId }: { chatId: string }) => {
@@ -261,7 +286,7 @@ export const ChatBody = ({
       socket?.off("message-receive", handleMessageReceive);
       socket?.off("ip-error", handleIPError);
     };
-  }, [socket, messages]);
+  }, [socket, selectedMember, selectedGroup]);
 
   useEffect(() => {
     const handleMouseDown = (e: MouseEvent) => {
@@ -350,7 +375,7 @@ export const ChatBody = ({
         createdAt: new Date().toISOString(),
         ...(selectedGroup?.id && { roomId: selectedGroup.id }),
         members: selectedGroup?.members || null,
-        toId: selectedMember?.id,
+        ...(selectedMember?.id && { toId: selectedMember?.id }),
         type: isGroup
           ? "MEMBER_MEMBERS_ADMIN"
           : selectedMember?.isAdmin
@@ -451,10 +476,11 @@ export const ChatBody = ({
           image: user.image,
           files: [],
           images: imagesUrl,
+          createdAt: new Date().toISOString(),
           email: user.email,
           ...(selectedGroup?.id && { roomId: selectedGroup.id }),
           members: selectedGroup?.members || null,
-          toId: selectedMember?.id,
+          ...(selectedMember?.id && { toId: selectedMember?.id }),
           type: isGroup
             ? "MEMBER_MEMBERS_ADMIN"
             : selectedMember?.isAdmin
@@ -554,8 +580,9 @@ export const ChatBody = ({
           files: filesUrl,
           images: [],
           organizationId,
+          createdAt: new Date().toISOString(),
           email: user.email,
-          toId: selectedMember?.id,
+          ...(selectedMember?.id && { toId: selectedMember?.id }),
           ...(selectedGroup?.id && { roomId: selectedGroup.id }),
           members: selectedGroup?.members || null,
           type: isGroup
@@ -710,14 +737,24 @@ export const ChatBody = ({
             </Button>
           </DropdownMenuTrigger>
           <DropdownMenuContent>
-            <DropdownMenuItem
-              onClick={() =>
-                deleteAllChatsMutation.mutate(selectedMember?.id || "")
-              }
-              variant="destructive"
-            >
-              Delete all chats
-            </DropdownMenuItem>
+            {selectedMember && (
+              <DropdownMenuItem
+                onClick={() =>
+                  deleteAllChatsMutation.mutate(selectedMember?.id || "")
+                }
+                variant="destructive"
+              >
+                Delete all chats
+              </DropdownMenuItem>
+            )}
+            {selectedGroup && (
+              <DropdownMenuItem
+                variant="destructive"
+                onClick={() => leaveGroupMutation.mutate(selectedGroup?.id!)}
+              >
+                Leave Group
+              </DropdownMenuItem>
+            )}
           </DropdownMenuContent>
         </DropdownMenu>
       </div>

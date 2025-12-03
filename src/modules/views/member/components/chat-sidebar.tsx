@@ -7,14 +7,16 @@ import {
   DropdownMenuItem,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
+import { useMemberChatMembers } from "@/hooks/use-member-chat-members";
 import { axiosInstance } from "@/lib/axios-instance";
 import { useGetMemberOrganization } from "@/lib/common-query";
+import { SocketContext } from "@/lib/socket-context";
 import { cn } from "@/lib/utils";
 import { organizationStore } from "@/zustand/member.store";
-import { useMutation, useQuery } from "@tanstack/react-query";
+import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { AxiosError } from "axios";
 import { EllipsisVerticalIcon, Loader2 } from "lucide-react";
-import { Dispatch, SetStateAction, useEffect } from "react";
+import { Dispatch, SetStateAction, useContext, useEffect } from "react";
 import { toast } from "sonner";
 
 type ChatResponseType = {
@@ -28,36 +30,6 @@ type ChatResponseType = {
   status: string;
   message: string;
   createdAt: string;
-};
-
-type ChatMembersResponse = {
-  admin: {
-    id: string;
-    name: string;
-    email: string;
-    image: string | null;
-    socketId: string;
-  };
-  members: {
-    id: string;
-    name: string;
-    email: string;
-    image: string | null;
-    designation: string;
-    socketId: string;
-  }[];
-  rooms: {
-    id: string;
-    name: string;
-    image: string;
-    members: {
-      id: string;
-      name: string;
-      email: string;
-      image?: string;
-      designation: string;
-    }[];
-  }[];
 };
 
 interface Props {
@@ -119,19 +91,13 @@ export const ChatSidebar = ({
   selectedGroup,
   setSelectedGroup,
 }: Props) => {
+  const query = useQueryClient();
   const { selectedOrganizationId } = organizationStore();
+  const socket = useContext(SocketContext);
+  const { isPending, membersData, refetch } = useMemberChatMembers(
+    selectedOrganizationId!
+  );
 
-  // Queries
-  const { data: membersData, isPending } = useQuery({
-    queryKey: ["get-chat-members"],
-    queryFn: async () => {
-      const res = await axiosInstance.get(
-        `/member/organizations/get-chat-members/${selectedOrganizationId}`
-      );
-      return res.data as ChatMembersResponse;
-    },
-    refetchOnWindowFocus: false,
-  });
   // Mutations
   const deleteAllChatsMutation = useMutation({
     mutationFn: async (memberId: string) => {
@@ -142,6 +108,7 @@ export const ChatSidebar = ({
       return res.data;
     },
     onSuccess: () => {
+      toast.success("All chats deleted successfully");
       setMessages([]);
     },
     onError: (error: AxiosError<{ message: string }>) => {
@@ -149,7 +116,39 @@ export const ChatSidebar = ({
       toast.error(message);
     },
   });
+  const leaveGroupMutation = useMutation({
+    mutationFn: async (roomId: string) => {
+      const respose = await axiosInstance.post("/member/groups/leave", {
+        roomId,
+      });
+      return respose.data;
+    },
+    onSuccess: () => {
+      toast.success("Group leaved successfully");
+      query.invalidateQueries({
+        queryKey: ["get-chat-members"],
+      });
+    },
+    onError: (error: AxiosError<{ message: string }>) => {
+      const errorMessage =
+        error?.response?.data?.message || "Something went wrong!";
+      toast.error(errorMessage);
+    },
+  });
   const { data } = useGetMemberOrganization({ id: selectedOrganizationId! });
+
+  useEffect(() => {
+    if (!socket) return;
+    socket.on("group-created", () => {
+      query.invalidateQueries({
+        queryKey: ["get-chat-members"],
+      });
+    });
+
+    return () => {
+      socket.off("group-created", refetch);
+    };
+  }, [socket]);
 
   useEffect(() => {
     const member = membersData?.members[0];
@@ -159,11 +158,13 @@ export const ChatSidebar = ({
         ...member,
         isAdmin: false,
       });
+      setSelectedGroup(null);
     } else if (admin) {
       setSelectedMember({
         ...admin,
         isAdmin: true,
       });
+      setSelectedGroup(null);
     }
   }, [membersData]);
 
@@ -246,7 +247,7 @@ export const ChatSidebar = ({
             )}
           </div>
           {membersData && membersData.rooms.length > 0 && (
-            <>
+            <div className="flex flex-col gap-1">
               <h3 className="text-neutral-400 text-sm font-semibold">Groups</h3>
               <div className="flex flex-col gap-2.5">
                 {membersData?.rooms.map((room, index) => (
@@ -272,17 +273,9 @@ export const ChatSidebar = ({
                       <DropdownMenuContent>
                         <DropdownMenuItem
                           variant="destructive"
-                          // Delete All group chats
-                          onClick={() => {}}
+                          onClick={() => leaveGroupMutation.mutate(room.id)}
                         >
-                          Delete All Chats
-                        </DropdownMenuItem>
-                        <DropdownMenuItem
-                          variant="destructive"
-                          // Delete group
-                          onClick={() => {}}
-                        >
-                          Delete group
+                          Leave Group
                         </DropdownMenuItem>
                       </DropdownMenuContent>
                     </DropdownMenu>
@@ -298,62 +291,66 @@ export const ChatSidebar = ({
                   </button>
                 ))}
               </div>
-            </>
+            </div>
           )}
-          {membersData &&
-            membersData?.members.length > 0 &&
-            membersData?.members.map((member, index) => (
-              <div className="flex flex-col gap-1 h-full">
-                <h3 className="text-neutral-400 text-sm font-semibold">
-                  Members
-                </h3>
-                <div className="flex flex-col gap-2.5 h-full">
-                  <button
-                    key={index}
-                    onClick={() => {
-                      setSelectedGroup(null);
-                      handleSelectMember({ ...member, isAdmin: false });
-                    }}
-                    className={cn(
-                      "relative flex gap-2 items-center hover:bg-white/20 transition-all cursor-pointer rounded-lg px-2 py-2.5",
-                      member.id === selectedMember?.id
-                        ? "bg-white/20"
-                        : "bg-white/10"
-                    )}
-                  >
-                    <DropdownMenu>
-                      <DropdownMenuTrigger asChild>
-                        <button className="absolute top-1 right-1 cursor-pointer px-0.5 py-0.5 rounded-xs bg-transparent hover:bg-neutral-800">
-                          <EllipsisVerticalIcon className="text-white size-3" />
-                        </button>
-                      </DropdownMenuTrigger>
-                      <DropdownMenuContent>
-                        <DropdownMenuItem
-                          variant="destructive"
-                          onClick={() =>
-                            deleteAllChatsMutation.mutate(member.id)
-                          }
-                        >
-                          Delete all chats
-                        </DropdownMenuItem>
-                      </DropdownMenuContent>
-                    </DropdownMenu>
-                    <Avatar className="w-10 h-10">
-                      <AvatarImage
-                        src={member.image || ""}
-                        alt={`${member.name} image`}
-                      />
-                      <AvatarFallback>
-                        {member.name.substring(0, 1)}
-                      </AvatarFallback>
-                    </Avatar>
-                    <div className="flex flex-col items-start">
-                      <h3 className="text-white text-sm">{member.name}</h3>
+          {membersData && membersData?.members?.length > 0 && (
+            <div className="flex flex-col gap-1">
+              <h3 className="text-neutral-400 text-sm font-semibold">
+                Members
+              </h3>
+              {membersData &&
+                membersData?.members.length > 0 &&
+                membersData?.members.map((member, index) => (
+                  <div className="flex flex-col gap-1 h-full">
+                    <div className="flex flex-col gap-2.5 h-full">
+                      <button
+                        key={index}
+                        onClick={() => {
+                          setSelectedGroup(null);
+                          handleSelectMember({ ...member, isAdmin: false });
+                        }}
+                        className={cn(
+                          "relative flex gap-2 items-center hover:bg-white/20 transition-all cursor-pointer rounded-lg px-2 py-2.5",
+                          member.id === selectedMember?.id
+                            ? "bg-white/20"
+                            : "bg-white/10"
+                        )}
+                      >
+                        <DropdownMenu>
+                          <DropdownMenuTrigger asChild>
+                            <button className="absolute top-1 right-1 cursor-pointer px-0.5 py-0.5 rounded-xs bg-transparent hover:bg-neutral-800">
+                              <EllipsisVerticalIcon className="text-white size-3" />
+                            </button>
+                          </DropdownMenuTrigger>
+                          <DropdownMenuContent>
+                            <DropdownMenuItem
+                              variant="destructive"
+                              onClick={() =>
+                                deleteAllChatsMutation.mutate(member.id)
+                              }
+                            >
+                              Delete all chats
+                            </DropdownMenuItem>
+                          </DropdownMenuContent>
+                        </DropdownMenu>
+                        <Avatar className="w-10 h-10">
+                          <AvatarImage
+                            src={member.image || ""}
+                            alt={`${member.name} image`}
+                          />
+                          <AvatarFallback>
+                            {member.name.substring(0, 1)}
+                          </AvatarFallback>
+                        </Avatar>
+                        <div className="flex flex-col items-start">
+                          <h3 className="text-white text-sm">{member.name}</h3>
+                        </div>
+                      </button>
                     </div>
-                  </button>
-                </div>
-              </div>
-            ))}
+                  </div>
+                ))}
+            </div>
+          )}
         </div>
       )}
     </div>

@@ -27,14 +27,15 @@ export const SocketProvider = ({ children }: { children: ReactNode }) => {
       const ipData = await response.json();
       const ip = ipData.ip;
       // Connect ws to server on the base of role
-      const socketIo = io(serverUri, {
-        // path: `/${role}/socket.io/`,
+      const socketIo = io("https://backend.taskhuddle.live", {
+        path: `/${role}/socket.io/`,
         transports: ["websocket"],
         withCredentials: true,
         forceNew: true,
         auth: {
           role: data.data.role,
           ip,
+          id: user?.id,
         },
       });
 
@@ -47,9 +48,9 @@ export const SocketProvider = ({ children }: { children: ReactNode }) => {
         console.log(data);
       });
 
-      socketIo.on("disconnect", (reason) => {
-        console.warn("⚠️ Disconnected from admin socket:", reason);
-      });
+      // socketIo.on("disconnect", () => {
+      //   socketIo.emit("disconnect-socket", { id: user?.id });
+      // });
 
       return () => {
         socketIo.disconnect();

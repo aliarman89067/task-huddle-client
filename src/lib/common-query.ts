@@ -48,12 +48,11 @@ export const useGetAdminOrganization = ({
     },
     retry: id ? 1 : false,
     refetchOnWindowFocus: !!id,
-    // enabled: !!id,
+    enabled: !!id,
   });
   const axiosError = error as AxiosError<{ message: string }>;
   const errorMessage =
     axiosError?.response?.data.message || "Something went wrong";
-
   return {
     data,
     error: errorMessage,

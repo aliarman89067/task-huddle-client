@@ -29,6 +29,7 @@ import { EmptyOrganization } from "@/components/empty-organization";
 import { ErrorCard } from "@/components/error-card";
 import { useGetQueryError } from "@/hooks/use-get-query-error";
 import { AxiosError } from "axios";
+import { toast } from "sonner";
 
 type MembersDataType = {
   id: string;
@@ -234,6 +235,7 @@ const MemberRow = ({ index, member }: MemberRowProps) => {
       queryClient.invalidateQueries({
         queryKey: ["get-pending-members"],
       });
+      toast.success("Invitation resend successfully");
     },
   });
 
@@ -248,7 +250,7 @@ const MemberRow = ({ index, member }: MemberRowProps) => {
             Added At
           </span>
           <span className="text-neutral-800 text-sm">
-            {new Date(member.createdAt).toLocaleString()}
+            {new Date(member.createdAt).toLocaleDateString()}
           </span>
         </div>
         <div className="flex flex-col">

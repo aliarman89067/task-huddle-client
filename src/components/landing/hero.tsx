@@ -9,9 +9,11 @@ import {
 import { CTAButton } from "../cta-button";
 import { MaxWidthWrapper } from "./max-width-wrapper";
 import { useRouter } from "next/navigation";
+import { userStore } from "@/zustand/user.store";
 
 export const Hero = () => {
   const router = useRouter();
+  const { user } = userStore();
 
   const iconsData = [
     {
@@ -105,7 +107,9 @@ export const Hero = () => {
           </div>
           <CTAButton
             title="Get Started"
-            onClick={() => router.push("/login")}
+            onClick={() => {
+              router.push(user ? "/dashboard" : "/login");
+            }}
             classNames="w-[450px] mt-6"
           />
         </motion.div>

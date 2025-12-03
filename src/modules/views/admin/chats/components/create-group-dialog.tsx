@@ -16,7 +16,7 @@ import { axiosInstance } from "@/lib/axios-instance";
 import { SocketContext } from "@/lib/socket-context";
 import { cn } from "@/lib/utils";
 import { userStore } from "@/zustand/user.store";
-import { QueryClient, useQuery } from "@tanstack/react-query";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
 import axios, { AxiosError } from "axios";
 import { UsersIcon } from "lucide-react";
 import Image from "next/image";
@@ -34,6 +34,7 @@ interface Props {
   isOpen: boolean;
   setIsOpen: Dispatch<SetStateAction<boolean>>;
   organizationId: string;
+  refetch: () => Promise<any>;
 }
 
 type MembersProps = {
@@ -50,8 +51,9 @@ export const CreateGroupDialog = ({
   isOpen,
   setIsOpen,
   organizationId,
+  refetch,
 }: Props) => {
-  const query = new QueryClient();
+  const query = useQueryClient();
   const [name, setName] = useState("");
   const [selectedMemberIds, setSelectedMemberIds] = useState<string[]>([]);
   const [isLoading, setIsLoading] = useState(false);
@@ -86,13 +88,17 @@ export const CreateGroupDialog = ({
   useEffect(() => {
     if (!socket) return;
     socket.on("room-created", () => {
-      query.invalidateQueries({
-        queryKey: ["get-chat-members"],
-      });
-      setIsOpen(false);
-      setIsLoading(false);
-      setSelectedMemberIds([]);
-      setImage(null);
+      query
+        .invalidateQueries({
+          queryKey: ["get-chat-members"],
+        })
+        .then(() => {
+          setIsOpen(false);
+          setIsLoading(false);
+          setSelectedMemberIds([]);
+          setImage(null);
+          setName("");
+        });
     });
 
     return () => {
@@ -198,8 +204,8 @@ export const CreateGroupDialog = ({
                 <Image
                   src={image.url}
                   alt="Group Image"
-                  width={30}
-                  height={30}
+                  width={150}
+                  height={150}
                   className="w-full h-full rounded-full object-cover"
                 />
               </div>

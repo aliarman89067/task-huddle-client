@@ -14,7 +14,7 @@ import { SocketContext } from "@/lib/socket-context";
 import { userStore } from "@/zustand/user.store";
 import { toast } from "sonner";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
-import { useMutation, useQuery } from "@tanstack/react-query";
+import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { axiosInstance } from "@/lib/axios-instance";
 import { LoadingScreen } from "@/components/loading-screen";
 import { v4 as uuid } from "uuid";
@@ -123,6 +123,7 @@ export const ChatBody = ({
   messages,
   setMessages,
 }: Props) => {
+  const query = useQueryClient();
   const { user } = userStore();
   const emojiDivRef = useRef<HTMLDivElement | null>(null);
   const [isMembersDialogOpen, setIsMembersDialogOpen] = useState(false);
@@ -197,6 +198,40 @@ export const ChatBody = ({
       toast.error(message);
     },
   });
+  const deleteGroupMutation = useMutation({
+    mutationFn: async (roomId: string) => {
+      const response = await axiosInstance.delete(`/admin/groups/${roomId}`);
+      return response.data;
+    },
+    onSuccess: () => {
+      toast.success("Group deleted successfully");
+      query.invalidateQueries({
+        queryKey: ["get-chat-members"],
+      });
+    },
+    onError: (error: AxiosError<{ message: string }>) => {
+      const errorMessage =
+        error.response?.data.message || "Something went wrong!";
+      toast.error(errorMessage);
+    },
+  });
+  const deleteGroupChatsMutation = useMutation({
+    mutationFn: async (roomId: string) => {
+      const response = await axiosInstance.delete(
+        `/admin/groups/chats/${roomId}`
+      );
+      return response.data;
+    },
+    onSuccess: () => {
+      toast.success("All chats deleted successfully");
+      setMessages([]);
+    },
+    onError: (error: AxiosError<{ message: string }>) => {
+      const errorMessage =
+        error.response?.data.message || "Something went wrong!";
+      toast.error(errorMessage);
+    },
+  });
 
   useEffect(() => {
     if (selectedMember) {
@@ -222,27 +257,29 @@ export const ChatBody = ({
     const handleMessageReceive = (
       data: ChatResponseType & { toId: string; roomId: string }
     ) => {
-      const isValidMember = data.toId === selectedMember?.id;
-      if (!isValidMember && selectedMember?.id) return;
-      const isValidGroup = data.roomId === selectedGroup?.id;
-      if (!isValidGroup && selectedGroup?.id) return;
+      const isValidMember =
+        data.toId === selectedMember?.id && selectedMember?.id;
+      const isValidGroup =
+        data.roomId === selectedGroup?.id && selectedGroup?.id;
 
-      const isExisting = messages.find(
-        (message) => message.chatId === data.chatId
-      );
-      if (isExisting) {
-        setMessages((prev) => {
-          if (!prev) return prev;
-          return prev.map((message) => {
-            if (message.chatId === data.chatId) {
-              return data;
-            } else {
-              return message;
-            }
+      if (isValidMember || isValidGroup) {
+        const isExisting = messages.find(
+          (message) => message.chatId === data.chatId
+        );
+        if (isExisting) {
+          setMessages((prev) => {
+            if (!prev) return prev;
+            return prev.map((message) => {
+              if (message.chatId === data.chatId) {
+                return data;
+              } else {
+                return message;
+              }
+            });
           });
-        });
-      } else {
-        setMessages((prev) => [...prev, data]);
+        } else {
+          setMessages((prev) => [...prev, data]);
+        }
       }
     };
     socket?.on("message-receive", handleMessageReceive);
@@ -250,7 +287,7 @@ export const ChatBody = ({
     return () => {
       socket?.off("message-receive", handleMessageReceive);
     };
-  }, [socket, messages]);
+  }, [socket, selectedMember, selectedGroup]);
 
   useEffect(() => {
     const handleMouseDown = (e: MouseEvent) => {
@@ -338,7 +375,7 @@ export const ChatBody = ({
         images: [],
         files: [],
         email: user.email,
-        toId: selectedMember?.id,
+        ...(selectedMember?.id && { toId: selectedMember?.id }),
         ...(selectedGroup?.id && { roomId: selectedGroup.id }),
         members: selectedGroup?.members || null,
         createdAt: new Date().toISOString(),
@@ -442,7 +479,7 @@ export const ChatBody = ({
           email: user.email,
           ...(selectedGroup?.id && { roomId: selectedGroup.id }),
           members: selectedGroup?.members || null,
-          toId: selectedMember?.id,
+          ...(selectedMember?.id && { toId: selectedMember?.id }),
           type: isGroup ? "ADMIN_MEMBERS" : "ADMIN_MEMBER",
         })
       );
@@ -539,7 +576,7 @@ export const ChatBody = ({
           files: filesUrl,
           images: [],
           email: user.email,
-          toId: selectedMember?.id,
+          ...(selectedMember?.id && { toId: selectedMember?.id }),
           ...(selectedGroup?.id && { roomId: selectedGroup.id }),
           members: selectedGroup?.members || null,
           type: isGroup ? "ADMIN_MEMBERS" : "ADMIN_MEMBER",
@@ -697,14 +734,36 @@ export const ChatBody = ({
             </Button>
           </DropdownMenuTrigger>
           <DropdownMenuContent>
-            <DropdownMenuItem
-              onClick={() =>
-                deleteAllChatsMutation.mutate(selectedMember?.id || "")
-              }
-              variant="destructive"
-            >
-              Delete all chats
-            </DropdownMenuItem>
+            {selectedMember?.id && (
+              <DropdownMenuItem
+                onClick={() =>
+                  deleteAllChatsMutation.mutate(selectedMember?.id || "")
+                }
+                variant="destructive"
+              >
+                Delete all chats
+              </DropdownMenuItem>
+            )}
+            {selectedGroup?.id && (
+              <>
+                <DropdownMenuItem
+                  onClick={() =>
+                    deleteGroupChatsMutation.mutate(selectedGroup?.id || "")
+                  }
+                  variant="destructive"
+                >
+                  Delete all chats
+                </DropdownMenuItem>
+                <DropdownMenuItem
+                  onClick={() =>
+                    deleteGroupMutation.mutate(selectedGroup?.id || "")
+                  }
+                  variant="destructive"
+                >
+                  Delete group
+                </DropdownMenuItem>
+              </>
+            )}
           </DropdownMenuContent>
         </DropdownMenu>
       </div>

@@ -4,7 +4,6 @@ import { toast } from "sonner";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { axiosInstance } from "@/lib/axios-instance";
 import { organizationStore } from "@/zustand/member.store";
-import dayjs from "dayjs";
 import { cn } from "@/lib/utils";
 import { Input } from "@/components/ui/input";
 import { AxiosError } from "axios";
@@ -35,11 +34,15 @@ export function CheckInBox({ organizationId }: Props) {
   // Mutations
   const checkMutation = useMutation({
     mutationFn: async () => {
+      const timezone = Intl.DateTimeFormat().resolvedOptions().timeZone;
+      console.log(timezone);
       const requestData = {
         organizationId: selectedOrganizationId,
         message,
-        checkInDate: new Date(),
+        checkInDate: new Date().toISOString(),
+        timezone: Intl.DateTimeFormat().resolvedOptions().timeZone,
       };
+
       const res = await axiosInstance.post(`/member/check`, requestData);
       return res.data;
     },
@@ -146,20 +149,20 @@ export function CheckInBox({ organizationId }: Props) {
     if (isCheckedIn && checkedInTime) {
       const intervalId = setInterval(() => {
         const diff = Date.now() - checkedInTime.getTime();
+
         const hours = Math.floor(diff / 3600000);
-        const minutes = Math.floor((diff % 360000) / 60000);
+        const minutes = Math.floor((diff % 3600000) / 60000);
         const seconds = Math.floor((diff % 60000) / 1000);
-        setCheckInTimeElapsed(`
-            ${String(hours).padStart(2, "0")}
-            :
-            ${String(minutes).padStart(2, "0")}
-        :
-        ${String(seconds).padStart(2, "0")}
-          `);
+
+        setCheckInTimeElapsed(
+          `${String(hours).padStart(2, "0")} : ${String(minutes).padStart(
+            2,
+            "0"
+          )} : ${String(seconds).padStart(2, "0")}`
+        );
       }, 1000);
-      return () => {
-        clearInterval(intervalId);
-      };
+
+      return () => clearInterval(intervalId);
     }
   }, [isCheckedIn, checkedInTime]);
 

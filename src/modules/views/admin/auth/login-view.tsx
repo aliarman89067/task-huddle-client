@@ -79,7 +79,7 @@ export const LoginPageView = () => {
           Welcome back login to continue.
         </p>
       </div>
-      <button
+      {/* <button
         type="button"
         className="max-w-sm mx-auto w-full bg-white border border-neutral-300 rounded-md py-3 cursor-pointer flex items-center justify-center gap-1 my-4 text-base font-semibold text-neutral-800 z-1"
       >
@@ -90,7 +90,7 @@ export const LoginPageView = () => {
           width={15}
           height={15}
         />
-      </button>
+      </button> */}
       <div className="flex items-center max-w-sm w-full mx-auto z-1">
         <div className="h-[1px] w-full bg-neutral-200" />
         <span className="bg-white whitespace-nowrap px-2 text-neutral-400 text-sm">

@@ -4,6 +4,7 @@ import {
   CheckIcon,
   Clock,
   ClockIcon,
+  EllipsisVerticalIcon,
   NotepadTextIcon,
   ScrollTextIcon,
   XIcon,
@@ -37,6 +38,14 @@ import { NoOrganization } from "@/constant";
 import { ErrorCard } from "@/components/error-card";
 import { useGetQueryError } from "@/hooks/use-get-query-error";
 import { AxiosError } from "axios";
+import { CheckInDetailsDialog } from "./components/check-in-details-dialog";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
+import { Button } from "@/components/ui/button";
 
 type Breaks = {
   id: string;
@@ -61,6 +70,15 @@ type ResponseType = {
   reason?: string | null;
   leaveDate?: Date | null;
   breaks: Breaks;
+  member: {
+    id: string;
+    email: string;
+    name: string;
+    image: string | null;
+    info: {
+      designation: string;
+    }[];
+  };
 };
 
 interface Props {
@@ -70,6 +88,10 @@ interface Props {
 export function CheckInOutView() {
   const { selectedOrganizationId } = organizationStore();
   const [selectedMember, setSelectedMember] = useState("all");
+  const [isDetailsOpen, setIsDetailsOpen] = useState(false);
+  const [selectedCheckIn, setSelectedCheckIn] = useState<ResponseType | null>(
+    null
+  );
   const [states, setStates] = useState({
     onTime: 0,
     lates: 0,
@@ -146,7 +168,7 @@ export function CheckInOutView() {
   const getTotalBreakTime = (breaks: Breaks) => {
     let diff = 0;
 
-    breaks.forEach((item) => {
+    breaks?.forEach((item) => {
       if (item.type === "BreakOut") {
         diff +=
           new Date(item.breakOutTime).getTime() -
@@ -190,6 +212,12 @@ export function CheckInOutView() {
 
   return (
     <div className="flex flex-col gap-6">
+      <CheckInDetailsDialog
+        isOpen={isDetailsOpen}
+        setIsOpen={setIsDetailsOpen}
+        checkInData={selectedCheckIn}
+        setCheckInData={setSelectedCheckIn}
+      />
       <OrganizationInfo title={organizationData?.name} />
       <div className="flex flex-col gap-5">
         <div className="flex flex-col gap-3">
@@ -305,6 +333,7 @@ export function CheckInOutView() {
                         <TableHead>Breaks</TableHead>
                         <TableHead>Total Break Time</TableHead>
                         <TableHead>Status</TableHead>
+                        <TableHead>Options</TableHead>
                       </TableRow>
                     </TableHeader>
                     <TableBody>
@@ -390,6 +419,25 @@ export function CheckInOutView() {
                                         <NotepadTextIcon className="size-4" />
                                       </div>
                                     )}
+                                  </TableCell>
+                                  <TableCell>
+                                    <DropdownMenu>
+                                      <DropdownMenuTrigger asChild>
+                                        <Button variant="ghost" size="sm">
+                                          <EllipsisVerticalIcon />
+                                        </Button>
+                                      </DropdownMenuTrigger>
+                                      <DropdownMenuContent>
+                                        <DropdownMenuItem
+                                          onClick={() => {
+                                            setSelectedCheckIn(item);
+                                            setIsDetailsOpen(true);
+                                          }}
+                                        >
+                                          View Full Details
+                                        </DropdownMenuItem>
+                                      </DropdownMenuContent>
+                                    </DropdownMenu>
                                   </TableCell>
                                 </TableRow>
                               );

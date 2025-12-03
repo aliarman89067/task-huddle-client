@@ -8,11 +8,12 @@ import { cn, getSession } from "@/lib/utils";
 import { userStore } from "@/zustand/user.store";
 import { useEffect } from "react";
 import { UserButton } from "../user-button";
+import { Loader2Icon } from "lucide-react";
 
 export const Navbar = () => {
   const pathname = usePathname();
   const { setUser, user } = userStore();
-  const { isSuccess, data } = getSession();
+  const { isSuccess, data, isPending } = getSession();
   useEffect(() => {
     if (isSuccess && data) {
       setUser(data);
@@ -67,7 +68,11 @@ export const Navbar = () => {
               );
             })}
           </div>
-          <UserButton />
+          {isPending ? (
+            <Loader2Icon className="size-5 text-neutral-700 animate-spin" />
+          ) : (
+            <UserButton />
+          )}
         </nav>
         <div className="w-full h-[1px] bg-radial from-neutral-200 to-white" />
       </div>

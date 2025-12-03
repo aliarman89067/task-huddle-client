@@ -10,13 +10,22 @@ import {
 import { axiosInstance } from "@/lib/axios-instance";
 import { cn } from "@/lib/utils";
 import { organizationStore } from "@/zustand/member.store";
-import { useMutation, useQuery } from "@tanstack/react-query";
+import {
+  QueryClient,
+  useMutation,
+  useQuery,
+  useQueryClient,
+} from "@tanstack/react-query";
 import { AxiosError } from "axios";
 import { EllipsisVerticalIcon, Loader2, UsersIcon } from "lucide-react";
 import { useSearchParams } from "next/navigation";
 import { Dispatch, SetStateAction, useEffect, useState } from "react";
 import { toast } from "sonner";
 import { CreateGroupDialog } from "./create-group-dialog";
+import { useGetAdminChatMembers } from "@/hooks/use-admin-chat-members";
+import { RemoveMemberDialog } from "./remove-member-dialog";
+import { AddMemberDialog } from "./add-member-dialog";
+import { EditGroupDialog } from "./edit-group-dialog";
 
 type ChatResponseType = {
   id: string;
@@ -29,36 +38,6 @@ type ChatResponseType = {
   status: string;
   message: string;
   createdAt: string;
-};
-
-type ChatMembersResponse = {
-  admin: {
-    id: string;
-    name: string;
-    email: string;
-    image: string | null;
-    socketId: string;
-  };
-  members: {
-    id: string;
-    name: string;
-    email: string;
-    image: string | null;
-    designation: string;
-    socketId: string;
-  }[];
-  rooms: {
-    id: string;
-    name: string;
-    image: string;
-    members: {
-      id: string;
-      name: string;
-      email: string;
-      image?: string;
-      designation: string;
-    }[];
-  }[];
 };
 
 interface Props {
@@ -121,24 +100,21 @@ export const ChatSidebar = ({
   selectedGroup,
   setSelectedGroup,
 }: Props) => {
+  const query = useQueryClient();
+
   const { selectedOrganizationId } = organizationStore();
   const [isCreateGroup, setIsCreateGroup] = useState(false);
+  const [isRemoveMember, setIsRemoveMember] = useState(false);
+  const [isAddMember, setIsAddMember] = useState(false);
+  const [selectedRoomId, setSelectedRoomId] = useState("");
+  const [isEditGroup, setIsEditGroup] = useState(false);
   const searchParams = useSearchParams();
   const memberId = searchParams.get("memberId");
 
-  // Queries
-  const { data: membersData, isPending } = useQuery({
-    queryKey: ["get-chat-members"],
-    queryFn: async () => {
-      const res = await axiosInstance.get(
-        `/admin/organizations/get-chat-members/${selectedOrganizationId}`
-      );
-      return res.data as ChatMembersResponse;
-    },
-    retry: !!organizationName,
-    enabled: !!organizationName,
-    refetchOnWindowFocus: false,
-  });
+  const { membersData, isPending, refetch } = useGetAdminChatMembers(
+    selectedOrganizationId!
+  );
+
   // Mutations
   const deleteAllChatsMutation = useMutation({
     mutationFn: async (memberId: string) => {
@@ -148,11 +124,47 @@ export const ChatSidebar = ({
       return res.data;
     },
     onSuccess: () => {
+      toast.success("All chats deleted successfully");
       setMessages([]);
     },
     onError: (error: AxiosError<{ message: string }>) => {
       const message = error.response?.data.message || "Something went wrong!";
       toast.error(message);
+    },
+  });
+
+  const deleteGroupMutation = useMutation({
+    mutationFn: async (roomId: string) => {
+      const response = await axiosInstance.delete(`/admin/groups/${roomId}`);
+      return response.data;
+    },
+    onSuccess: () => {
+      toast.success("Group deleted successfully");
+      query.invalidateQueries({
+        queryKey: ["get-chat-members"],
+      });
+    },
+    onError: (error: AxiosError<{ message: string }>) => {
+      const errorMessage =
+        error.response?.data.message || "Something went wrong!";
+      toast.error(errorMessage);
+    },
+  });
+  const deleteGroupChatsMutation = useMutation({
+    mutationFn: async (roomId: string) => {
+      const response = await axiosInstance.delete(
+        `/admin/groups/chats/${roomId}`
+      );
+      return response.data;
+    },
+    onSuccess: () => {
+      toast.success("All chats deleted successfully");
+      setMessages([]);
+    },
+    onError: (error: AxiosError<{ message: string }>) => {
+      const errorMessage =
+        error.response?.data.message || "Something went wrong!";
+      toast.error(errorMessage);
     },
   });
 
@@ -165,6 +177,7 @@ export const ChatSidebar = ({
           ...member,
           isAdmin: false,
         });
+        setSelectedGroup(null);
       } else {
         const member = membersData?.members[0];
         if (member) {
@@ -172,15 +185,43 @@ export const ChatSidebar = ({
             ...member,
             isAdmin: false,
           });
+          setSelectedGroup(null);
         }
       }
     } else {
-      const member = membersData?.members[0];
-      if (member) {
-        setSelectedMember({
-          ...member,
-          isAdmin: false,
-        });
+      if (selectedMember) {
+        const member = membersData?.members.find(
+          (item) => item.id === selectedMember.id
+        );
+        const firstMember = membersData?.members[0];
+
+        if (member) {
+          setSelectedMember({
+            ...member,
+            isAdmin: false,
+          });
+          setSelectedGroup(null);
+        } else if (firstMember) {
+          setSelectedMember({
+            ...firstMember,
+            isAdmin: false,
+          });
+          setSelectedGroup(null);
+        }
+      } else if (selectedGroup) {
+        const room = membersData?.rooms.find(
+          (item) => item.id === selectedGroup.id
+        );
+        const firstRoom = membersData?.rooms[0];
+        if (room) {
+          setSelectedGroup({
+            ...room,
+          });
+        } else if (firstRoom) {
+          setSelectedGroup({
+            ...firstRoom,
+          });
+        }
       }
     }
   }, [membersData, memberId]);
@@ -205,7 +246,34 @@ export const ChatSidebar = ({
         isOpen={isCreateGroup}
         setIsOpen={setIsCreateGroup}
         organizationId={selectedOrganizationId!}
+        refetch={refetch}
       />
+      {selectedRoomId && (
+        <RemoveMemberDialog
+          isOpen={isRemoveMember}
+          setIsOpen={setIsRemoveMember}
+          roomId={selectedRoomId}
+          setRoomId={setSelectedRoomId}
+          organizationId={selectedOrganizationId!}
+        />
+      )}
+      {selectedRoomId && (
+        <AddMemberDialog
+          isOpen={isAddMember}
+          setIsOpen={setIsAddMember}
+          roomId={selectedRoomId}
+          setRoomId={setSelectedRoomId}
+          organizationId={selectedOrganizationId!}
+        />
+      )}
+      {isEditGroup && (
+        <EditGroupDialog
+          isOpen={isEditGroup}
+          setIsOpen={setIsEditGroup}
+          roomId={selectedRoomId}
+          setRoomId={setSelectedRoomId}
+        />
+      )}
       {isPending ? (
         <div className="flex items-center justify-center w-full h-full">
           <Loader2 className="size-6 text-neutral-400 animate-spin" />
@@ -270,16 +338,40 @@ export const ChatSidebar = ({
                         </DropdownMenuTrigger>
                         <DropdownMenuContent>
                           <DropdownMenuItem
+                            onClick={() => {
+                              setSelectedRoomId(room.id);
+                              setIsEditGroup(true);
+                            }}
+                          >
+                            Edit Group
+                          </DropdownMenuItem>
+                          <DropdownMenuItem
+                            onClick={() => {
+                              setSelectedRoomId(room.id);
+                              setIsAddMember(true);
+                            }}
+                          >
+                            Add Members
+                          </DropdownMenuItem>
+                          <DropdownMenuItem
+                            onClick={() => {
+                              setSelectedRoomId(room.id);
+                              setIsRemoveMember(true);
+                            }}
+                          >
+                            Remove Members
+                          </DropdownMenuItem>
+                          <DropdownMenuItem
                             variant="destructive"
-                            // Delete All group chats
-                            onClick={() => {}}
+                            onClick={() =>
+                              deleteGroupChatsMutation.mutate(room.id)
+                            }
                           >
                             Delete All Chats
                           </DropdownMenuItem>
                           <DropdownMenuItem
                             variant="destructive"
-                            // Delete group
-                            onClick={() => {}}
+                            onClick={() => deleteGroupMutation.mutate(room.id)}
                           >
                             Delete group
                           </DropdownMenuItem>

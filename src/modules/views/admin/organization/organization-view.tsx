@@ -18,7 +18,7 @@ import {
 } from "@/components/ui/select";
 import { useGetAdminOrganization } from "@/lib/common-query";
 import { LoadingScreen } from "@/components/loading-screen";
-import { useQuery } from "@tanstack/react-query";
+import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { axiosInstance } from "@/lib/axios-instance";
 import { useEffect, useState } from "react";
 import { NoOrganization } from "@/constant";
@@ -26,12 +26,33 @@ import { EmptyOrganization } from "@/components/empty-organization";
 import { ErrorCard } from "@/components/error-card";
 import { useGetQueryError } from "@/hooks/use-get-query-error";
 import { AxiosError } from "axios";
+import { ChevronDownIcon } from "lucide-react";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
+import { UpdateOrganizationDialog } from "./components/update-organization-dialog";
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+  AlertDialogTrigger,
+} from "@/components/ui/alert-dialog";
+import { toast } from "sonner";
 
 interface Props {
   id: string;
 }
 
 export const OrganizationView = ({ id }: Props) => {
+  const [isUpdate, setIsUpdate] = useState(false);
   const [timeRange, setTimeRange] = useState<
     "week" | "1 month" | "3 month" | "7 month" | "year"
   >("week");
@@ -90,7 +111,29 @@ export const OrganizationView = ({ id }: Props) => {
 
   return (
     <section>
-      <OrganizationInfo title={organizationData.name} />
+      <UpdateOrganizationDialog
+        isOpen={isUpdate}
+        setIsOpen={setIsUpdate}
+        organizationId={id}
+        prevName={organizationData.name}
+        prevImage={organizationData.imageUrl}
+      />
+      <div className="flex items-center justify-between">
+        <OrganizationInfo title={organizationData.name} />
+        <DropdownMenu>
+          <DropdownMenuTrigger asChild>
+            <Button className="bg-foreground hover:bg-foreground/90">
+              Actions <ChevronDownIcon />
+            </Button>
+          </DropdownMenuTrigger>
+          <DropdownMenuContent>
+            <DropdownMenuItem onClick={() => setIsUpdate(true)}>
+              Update Organization
+            </DropdownMenuItem>
+            <DeleteOrganizationDialog organizationId={id} />
+          </DropdownMenuContent>
+        </DropdownMenu>
+      </div>
       <div className="flex flex-col gap-5 mt-2">
         <div className="bg-[#212529] rounded-xl p-3">
           <div className="flex-1 bg-[#24292f] rounded-xl p-4">
@@ -207,5 +250,68 @@ export const OrganizationView = ({ id }: Props) => {
         </div>
       </div>
     </section>
+  );
+};
+
+const DeleteOrganizationDialog = ({
+  organizationId,
+}: {
+  organizationId: string;
+}) => {
+  const router = useRouter();
+  const query = useQueryClient();
+
+  const deleteOrganizationMutation = useMutation({
+    mutationFn: async () => {
+      const response = await axiosInstance.delete(
+        `/admin/organizations/${organizationId}`
+      );
+      return response.data;
+    },
+    onSuccess: () => {
+      toast.success("Organization removed successfully");
+      query.invalidateQueries({
+        queryKey: ["get-organization"],
+      });
+      query.invalidateQueries({
+        queryKey: ["get-organizations"],
+      });
+      router.replace("/dashboard");
+    },
+    onError: (error: AxiosError<{ message: string }>) => {
+      const errorMessage =
+        error?.response?.data?.message || "Something went wrong!";
+      toast.error(errorMessage);
+    },
+  });
+
+  return (
+    <AlertDialog>
+      <AlertDialogTrigger asChild>
+        <DropdownMenuItem
+          variant="destructive"
+          onSelect={(e) => e.preventDefault()}
+        >
+          Delete Organization
+        </DropdownMenuItem>
+      </AlertDialogTrigger>
+      <AlertDialogContent>
+        <AlertDialogHeader>
+          <AlertDialogTitle>Are you sure?</AlertDialogTitle>
+          <AlertDialogDescription>
+            This process cannot be undone and the organization data will be
+            removed from our servers.
+          </AlertDialogDescription>
+        </AlertDialogHeader>
+        <AlertDialogFooter>
+          <AlertDialogAction
+            onClick={() => deleteOrganizationMutation.mutate()}
+          >
+            Delete
+          </AlertDialogAction>
+          <AlertDialogCancel>Cancel</AlertDialogCancel>
+        </AlertDialogFooter>
+      </AlertDialogContent>
+    </AlertDialog>
   );
 };

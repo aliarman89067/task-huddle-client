@@ -7,7 +7,6 @@ import {
   EllipsisVerticalIcon,
   NotepadTextIcon,
   ScrollTextIcon,
-  XIcon,
 } from "lucide-react";
 import {
   Table,
@@ -39,6 +38,19 @@ import {
 import { AxiosError } from "axios";
 import { toast } from "sonner";
 import { useGetCheck } from "@/hooks/use-get-check";
+import { CheckInDetailsDialog } from "./check-in-details-dialog";
+import { cn } from "@/lib/utils";
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+  AlertDialogTrigger,
+} from "@/components/ui/alert-dialog";
 
 type Breaks = {
   id: string;
@@ -71,6 +83,10 @@ interface Props {
 
 export function MemberAttendanceHistory({ organizationId }: Props) {
   const queryClient = new QueryClient();
+  const [selectedCheckIn, setSelectedCheckIn] = useState<ResponseType | null>(
+    null
+  );
+  const [isDetailsOpen, setIsDetailsOpen] = useState(false);
   const { refetch: checkRefetch } = useGetCheck(organizationId!);
   const [states, setStates] = useState({
     onTime: 0,
@@ -123,8 +139,12 @@ export function MemberAttendanceHistory({ organizationId }: Props) {
       const leaves = data.filter(
         (item) => item && item.type === "Leave"
       ).length;
-      const lates = data.filter((item) => item && item.isCheckInLate).length;
-      const onTime = data.filter((item) => item && !item.isCheckInLate).length;
+      const lates = data.filter(
+        (item) => item && item.isCheckInLate && item.type !== "Leave"
+      ).length;
+      const onTime = data.filter(
+        (item) => item && !item.isCheckInLate && item.type !== "Leave"
+      ).length;
       setStates({ leaves, lates, onTime });
     }
   }, [data, isPending]);
@@ -145,7 +165,7 @@ export function MemberAttendanceHistory({ organizationId }: Props) {
     const diff =
       new Date(checkOutTime).getTime() - new Date(checkInTime).getTime();
     const hours = Math.floor(diff / 3600000);
-    const minutes = Math.floor((diff % 360000) / 60000);
+    const minutes = Math.floor((diff % 3600000) / 60000);
     const seconds = Math.floor((diff % 60000) / 1000);
     return `
             ${String(hours).padStart(2, "0")}
@@ -156,10 +176,10 @@ export function MemberAttendanceHistory({ organizationId }: Props) {
           `;
   };
 
-  const getTotalBreakTime = (breaks: Breaks) => {
+  const getTotalBreaksTime = (breaks: Breaks) => {
     let diff = 0;
 
-    breaks.forEach((item) => {
+    breaks?.forEach((item) => {
       if (item.type === "BreakOut") {
         diff +=
           new Date(item.breakOutTime).getTime() -
@@ -188,6 +208,12 @@ export function MemberAttendanceHistory({ organizationId }: Props) {
 
   return (
     <Card className="shadow-medium">
+      <CheckInDetailsDialog
+        isOpen={isDetailsOpen}
+        setIsOpen={setIsDetailsOpen}
+        checkInData={selectedCheckIn}
+        setCheckInData={setSelectedCheckIn}
+      />
       <CardHeader className="flex items-center justify-between">
         <div className="flex items-center justify-between w-full">
           <CardTitle className="flex items-center gap-2">
@@ -280,7 +306,12 @@ export function MemberAttendanceHistory({ organizationId }: Props) {
                       .filter((item) => item)
                       .map((item, index) => {
                         return (
-                          <TableRow key={index}>
+                          <TableRow
+                            key={index}
+                            className={cn(
+                              selectedCheckIn?.id === item.id && "bg-primary/20"
+                            )}
+                          >
                             <TableCell className="font-medium">
                               {new Date(item.createdAt).toLocaleDateString(
                                 "en-US",
@@ -332,7 +363,7 @@ export function MemberAttendanceHistory({ organizationId }: Props) {
                             <TableCell className="font-mono">
                               <div className="flex items-center gap-1">
                                 {/* <Clock className="h-3 w-3 text-muted-foreground" /> */}
-                                {getTotalBreakTime(item.breaks)}
+                                {getTotalBreaksTime(item.breaks)}
                               </div>
                             </TableCell>
                             <TableCell>
@@ -358,20 +389,56 @@ export function MemberAttendanceHistory({ organizationId }: Props) {
                             </TableCell>
                             <TableCell>
                               <DropdownMenu>
-                                <DropdownMenuTrigger>
+                                <DropdownMenuTrigger asChild>
                                   <Button variant="ghost" size="sm">
                                     <EllipsisVerticalIcon />
                                   </Button>
                                 </DropdownMenuTrigger>
                                 <DropdownMenuContent>
+                                  <AlertDialog>
+                                    <AlertDialogTrigger asChild>
+                                      <DropdownMenuItem
+                                        onSelect={(e) => e.preventDefault()}
+                                      >
+                                        Resume Check In
+                                      </DropdownMenuItem>
+                                    </AlertDialogTrigger>
+
+                                    <AlertDialogContent>
+                                      <AlertDialogHeader>
+                                        <AlertDialogTitle>
+                                          Are you sure you want to resume this
+                                          Check In?
+                                        </AlertDialogTitle>
+                                        <AlertDialogDescription>
+                                          If you continue, the check-in will be
+                                          resumed.
+                                        </AlertDialogDescription>
+                                      </AlertDialogHeader>
+
+                                      <AlertDialogFooter>
+                                        <AlertDialogCancel>
+                                          Cancel
+                                        </AlertDialogCancel>
+                                        <AlertDialogAction
+                                          onClick={() =>
+                                            resumeCheckInMutation.mutate(
+                                              item.id
+                                            )
+                                          }
+                                        >
+                                          Continue
+                                        </AlertDialogAction>
+                                      </AlertDialogFooter>
+                                    </AlertDialogContent>
+                                  </AlertDialog>
+
                                   <DropdownMenuItem
-                                    onClick={() =>
-                                      resumeCheckInMutation.mutate(item.id)
-                                    }
+                                    onClick={() => {
+                                      setSelectedCheckIn(item);
+                                      setIsDetailsOpen(true);
+                                    }}
                                   >
-                                    Resume Check In
-                                  </DropdownMenuItem>
-                                  <DropdownMenuItem>
                                     View Full Details
                                   </DropdownMenuItem>
                                 </DropdownMenuContent>

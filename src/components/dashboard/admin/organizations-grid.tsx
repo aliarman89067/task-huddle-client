@@ -121,8 +121,6 @@ export const OrganizationsGrid = () => {
     },
   } satisfies ChartConfig;
 
-  console.log(chartData);
-
   return (
     <div className="flex flex-col gap-4 w-full">
       <OrganizationInfo title={organizationData?.name} />

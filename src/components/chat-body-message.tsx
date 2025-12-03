@@ -195,7 +195,8 @@ export const ChatBodyMessages = React.memo(
                     )}
                   >
                     <div className="flex items-center gap-2 text-xs text-neutral-600">
-                      {formatMessageTime(item.createdAt)}{" "}
+                      {item.status !== "SENDING" &&
+                        formatMessageTime(item.createdAt)}
                       <span className="text-neutral-800">
                         {item.id !== user?.id && item.name}
                       </span>
