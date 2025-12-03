@@ -46,6 +46,7 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import { Button } from "@/components/ui/button";
+import { Badge } from "@/components/ui/badge";
 
 type Breaks = {
   id: string;
@@ -326,6 +327,7 @@ export function CheckInOutView() {
                   <Table>
                     <TableHeader>
                       <TableRow>
+                        <TableHead>Name</TableHead>
                         <TableHead>Date</TableHead>
                         <TableHead>Check In</TableHead>
                         <TableHead>Check Out</TableHead>
@@ -344,6 +346,13 @@ export function CheckInOutView() {
                             .map((item, index) => {
                               return (
                                 <TableRow key={index}>
+                                  <TableCell className="flex flex-col">
+                                    <Badge>
+                                      {item.member.info[0].designation}
+                                    </Badge>
+                                    {item.member.name}
+                                  </TableCell>
+
                                   <TableCell className="font-medium">
                                     {new Date(
                                       item.createdAt

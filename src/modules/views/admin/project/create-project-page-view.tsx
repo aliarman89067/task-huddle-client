@@ -1,7 +1,6 @@
 "use client";
 import { LoadingScreen } from "@/components/loading-screen";
 import OrganizationInfo from "@/components/organization-info";
-import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { axiosInstance } from "@/lib/axios-instance";
@@ -13,7 +12,6 @@ import { Check, ChevronsUpDown, XIcon } from "lucide-react";
 import { useEffect, useRef, useState } from "react";
 import { useForm } from "react-hook-form";
 import { toast } from "sonner";
-import z from "zod";
 import {
   Command,
   CommandEmpty,

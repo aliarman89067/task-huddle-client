@@ -121,6 +121,32 @@ export const OrganizationsGrid = () => {
     },
   } satisfies ChartConfig;
 
+  let assignedProject = chartData.reduce(
+    (total, item) => (item.Assigned || 0) + total,
+    0
+  );
+  let completedProject = chartData.reduce(
+    (total, item) => (item.Completed || 0) + total,
+    0
+  );
+
+  let onTime = chartData.reduce((total, item) => (item.OnTime || 0) + total, 0);
+  let late = chartData.reduce((total, item) => (item.Late || 0) + total, 0);
+
+  const message =
+    chartType === "projects"
+      ? `${completedProject} project${
+          completedProject > 1 ? "s" : ""
+        } completed out of ${assignedProject}`
+      : `${onTime} Check In on Time and ${late} Late${late > 1 ? "s" : ""}`;
+
+  const percentage =
+    chartType === "projects"
+      ? `${Math.floor((completedProject / assignedProject) * 100) || 0}%` +
+        ` Project completed.`
+      : `${Math.floor((onTime / (late + onTime)) * 100) || 0}%` +
+        ` Check In is on Time.`;
+
   return (
     <div className="flex flex-col gap-4 w-full">
       <OrganizationInfo title={organizationData?.name} />
@@ -253,8 +279,8 @@ export const OrganizationsGrid = () => {
             </Select>
           </div>
           <MemberStatusChart
-            title="9 projects completed out of 10"
-            description="90% projects completed this week."
+            title={message}
+            description={percentage}
             chartData={chartData}
             chartConfig={chartConfig}
             dataKey1={chartType === "projects" ? "Assigned" : "Late"}

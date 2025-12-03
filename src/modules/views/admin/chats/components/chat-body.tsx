@@ -287,7 +287,7 @@ export const ChatBody = ({
     return () => {
       socket?.off("message-receive", handleMessageReceive);
     };
-  }, [socket, selectedMember, selectedGroup]);
+  }, [socket, message]);
 
   useEffect(() => {
     const handleMouseDown = (e: MouseEvent) => {
