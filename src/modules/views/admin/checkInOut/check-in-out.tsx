@@ -18,7 +18,7 @@ import {
   TableRow,
 } from "@/components/ui/table";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { useQuery } from "@tanstack/react-query";
+import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { axiosInstance } from "@/lib/axios-instance";
 import Image from "next/image";
 import { useEffect, useState } from "react";
@@ -47,6 +47,8 @@ import {
 } from "@/components/ui/dropdown-menu";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
+import { EditCheckInDialog } from "./components/edit-check-in-dialog";
+import { toast } from "sonner";
 
 type Breaks = {
   id: string;
@@ -87,20 +89,23 @@ interface Props {
 }
 
 export function CheckInOutView() {
+  const queryClient = useQueryClient();
+
   const { selectedOrganizationId } = organizationStore();
   const [selectedMember, setSelectedMember] = useState("all");
   const [isDetailsOpen, setIsDetailsOpen] = useState(false);
   const [selectedCheckIn, setSelectedCheckIn] = useState<ResponseType | null>(
     null
   );
+  const [isEditOpen, setIsEditOpen] = useState(false);
   const [states, setStates] = useState({
     onTime: 0,
     lates: 0,
     leaves: 0,
   });
   const [duration, setDuration] = useState<
-    "this week" | "this month" | "this year"
-  >("this week");
+    "today" | "this week" | "this month" | "this year"
+  >("today");
 
   const {
     data: organizationData,
@@ -120,12 +125,30 @@ export function CheckInOutView() {
   } = useQuery({
     queryKey: ["member-attendance-history"],
     queryFn: async () => {
+      const timezone = Intl.DateTimeFormat().resolvedOptions().timeZone;
       const res = await axiosInstance.get(
-        `/admin/checks/check-attendance/${selectedOrganizationId}?duration=${duration}&selectedMember=${selectedMember}`
+        `/admin/checks/check-attendance/${selectedOrganizationId}?duration=${duration}&selectedMember=${selectedMember}&timezone=${timezone}`
       );
       return res.data as ResponseType[];
     },
     retry: !!selectedOrganizationId,
+  });
+  const deleteMutation = useMutation({
+    mutationFn: async (checkId: string) => {
+      const response = await axiosInstance.delete(`/admin/checks/${checkId}`);
+      return response.data;
+    },
+    onSuccess: () => {
+      toast.success("Check remove successfully");
+      queryClient.invalidateQueries({
+        queryKey: ["member-attendance-history"],
+      });
+    },
+    onError: (error: AxiosError<{ message: string }>) => {
+      const errorMessage =
+        error?.response?.data?.message || "Something went wrong!";
+      toast.error(errorMessage);
+    },
   });
   useEffect(() => {
     organizationRefetch();
@@ -219,6 +242,12 @@ export function CheckInOutView() {
         checkInData={selectedCheckIn}
         setCheckInData={setSelectedCheckIn}
       />
+      <EditCheckInDialog
+        isOpen={isEditOpen}
+        setIsOpen={setIsEditOpen}
+        checkInData={selectedCheckIn}
+        setCheckInData={setSelectedCheckIn}
+      />
       <OrganizationInfo title={organizationData?.name} />
       <div className="flex flex-col gap-5">
         <div className="flex flex-col gap-3">
@@ -253,7 +282,7 @@ export function CheckInOutView() {
 
                   <Select
                     value={duration}
-                    defaultValue="this week"
+                    defaultValue="today"
                     onValueChange={(value) =>
                       setDuration(value as typeof duration)
                     }
@@ -262,6 +291,7 @@ export function CheckInOutView() {
                       <SelectValue placeholder="Select duration" />
                     </SelectTrigger>
                     <SelectContent>
+                      <SelectItem value="today">Today</SelectItem>
                       <SelectItem value="this week">This Week</SelectItem>
                       <SelectItem value="this month">This Month</SelectItem>
                       <SelectItem value="this year">This Year</SelectItem>
@@ -440,10 +470,26 @@ export function CheckInOutView() {
                                         <DropdownMenuItem
                                           onClick={() => {
                                             setSelectedCheckIn(item);
+                                            setIsEditOpen(true);
+                                          }}
+                                        >
+                                          Edit
+                                        </DropdownMenuItem>
+                                        <DropdownMenuItem
+                                          onClick={() => {
+                                            setSelectedCheckIn(item);
                                             setIsDetailsOpen(true);
                                           }}
                                         >
                                           View Full Details
+                                        </DropdownMenuItem>
+                                        <DropdownMenuItem
+                                          variant="destructive"
+                                          onClick={() =>
+                                            deleteMutation.mutate(item.id)
+                                          }
+                                        >
+                                          Delete
                                         </DropdownMenuItem>
                                       </DropdownMenuContent>
                                     </DropdownMenu>

@@ -94,10 +94,12 @@ export function CheckInBox({ organizationId }: Props) {
   // Mutations
   const breakMutation = useMutation({
     mutationFn: async (checkId: string) => {
+      const timezone = Intl.DateTimeFormat().resolvedOptions().timeZone;
       const requestData = {
         organizationId: selectedOrganizationId,
         checkId,
-        breakTime: new Date(),
+        breakTime: new Date().toISOString(),
+        timezone,
       };
       const res = await axiosInstance.post(`/member/break`, requestData);
       return res.data;

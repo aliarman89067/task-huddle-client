@@ -94,14 +94,15 @@ export function MemberAttendanceHistory({ organizationId }: Props) {
     leaves: 0,
   });
   const [duration, setDuration] = useState<
-    "this week" | "this month" | "this year"
-  >("this week");
+    "today" | "this week" | "this month" | "this year"
+  >("today");
 
   const { data, isPending, refetch } = useQuery({
     queryKey: ["member-attendance-history"],
     queryFn: async () => {
+      const timezone = Intl.DateTimeFormat().resolvedOptions().timeZone;
       const res = await axiosInstance.get(
-        `/member/check/check-attendance/${organizationId}?duration=${duration}`
+        `/member/check/check-attendance/${organizationId}?duration=${duration}&timezone=${timezone}`
       );
       return res.data as ResponseType[];
     },
@@ -221,13 +222,14 @@ export function MemberAttendanceHistory({ organizationId }: Props) {
           </CardTitle>
           <Select
             value={duration}
-            defaultValue="week"
+            defaultValue="today"
             onValueChange={(value) => setDuration(value as typeof duration)}
           >
             <SelectTrigger>
               <SelectValue placeholder="Select duration" />
             </SelectTrigger>
             <SelectContent>
+              <SelectItem value="today">Today</SelectItem>
               <SelectItem value="this week">This Week</SelectItem>
               <SelectItem value="this month">This Month</SelectItem>
               <SelectItem value="this year">This Year</SelectItem>
