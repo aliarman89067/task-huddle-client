@@ -22,6 +22,7 @@ import { OrganizationButton } from "./organization-button";
 import { organizationStore } from "@/zustand/member.store";
 import { SettingsButton } from "./settings-button";
 import { Badge } from "@/components/ui/badge";
+import { MoreButton } from "./more-button";
 
 export const AdminSidebar = () => {
   const router = useRouter();
@@ -31,6 +32,7 @@ export const AdminSidebar = () => {
   const [isExpand, setIsExpand] = useState(false);
   const [isOrganizationOpen, setIsOrganizationOpen] = useState(true);
   const [isSettingsOpen, setIsSettingsOpen] = useState(false);
+  const [isMoreOpen, setIsMoreOpen] = useState(false);
 
   // Queries
   const { data: organizationData, isPending: isOrganizationPending } = useQuery(
@@ -154,6 +156,18 @@ export const AdminSidebar = () => {
               <SettingsButton
                 isSettingsOpen={isSettingsOpen}
                 setIsSettingsOpen={setIsSettingsOpen}
+                Icon={item.icon}
+                HideOnExpand={HideOnExpand}
+                isExpand={isExpand}
+                label={item.label}
+              />
+            );
+          }
+          if (isDropdown && item.label === "More") {
+            return (
+              <MoreButton
+                isMoreOpen={isMoreOpen}
+                setIsMoreOpen={setIsMoreOpen}
                 Icon={item.icon}
                 HideOnExpand={HideOnExpand}
                 isExpand={isExpand}

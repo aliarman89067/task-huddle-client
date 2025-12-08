@@ -1,13 +1,19 @@
-"use client";
+import { Badge } from "@/components/ui/badge";
+import { Button } from "@/components/ui/button";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import {
-  Calendar,
-  CheckIcon,
-  Clock,
-  ClockIcon,
-  EllipsisVerticalIcon,
-  NotepadTextIcon,
-  ScrollTextIcon,
-} from "lucide-react";
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
 import {
   Table,
   TableBody,
@@ -16,145 +22,110 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { QueryClient, useMutation, useQuery } from "@tanstack/react-query";
 import { axiosInstance } from "@/lib/axios-instance";
-import Image from "next/image";
-import { useEffect, useState } from "react";
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "@/components/ui/select";
-import { Button } from "@/components/ui/button";
-import {
-  DropdownMenu,
-  DropdownMenuContent,
-  DropdownMenuItem,
-  DropdownMenuTrigger,
-} from "@/components/ui/dropdown-menu";
+import { Breaks, ResponseType } from "@/lib/schema";
+import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { AxiosError } from "axios";
-import { toast } from "sonner";
-import { useGetCheck } from "@/hooks/use-get-check";
-import { CheckInDetailsDialog } from "./check-in-details-dialog";
-import { cn } from "@/lib/utils";
 import {
-  AlertDialog,
-  AlertDialogAction,
-  AlertDialogCancel,
-  AlertDialogContent,
-  AlertDialogDescription,
-  AlertDialogFooter,
-  AlertDialogHeader,
-  AlertDialogTitle,
-  AlertDialogTrigger,
-} from "@/components/ui/alert-dialog";
-
-type Breaks = {
-  id: string;
-  type: "BreakIn" | "BreakOut";
-  breakInTime: Date;
-  breakOutTime: Date;
-}[];
-
-type ResponseType = {
-  id: string;
-  type?: string;
-  createdAt: Date;
-  checkInTime?: Date | null;
-  checkOutTime?: Date | null;
-  isCheckInLate?: boolean;
-  isCheckOutEarly?: boolean;
-  checkInDifference?: number | null;
-  checkOutDifference?: number | null;
-  checkInMessage?: string | null;
-  checkOutMessage?: string | null;
-  isGrace?: boolean;
-  reason?: string | null;
-  leaveDate?: Date | null;
-  breaks: Breaks;
-};
+  Calendar,
+  CheckIcon,
+  Clock,
+  ClockIcon,
+  EllipsisVerticalIcon,
+  NotepadTextIcon,
+  PencilIcon,
+  ScrollTextIcon,
+} from "lucide-react";
+import Image from "next/image";
+import { Dispatch, SetStateAction } from "react";
+import { toast } from "sonner";
 
 interface Props {
-  organizationId: string;
+  selectedMember: string;
+  setSelectedMember: Dispatch<SetStateAction<string>>;
+  organizationData: any;
+  duration: "today" | "this week" | "this month" | "this year";
+  setDuration: Dispatch<
+    SetStateAction<"today" | "this week" | "this month" | "this year">
+  >;
+  data: ResponseType[];
+  states: {
+    onTime: number;
+    lates: number;
+    leaves: number;
+  };
+  setSelectedCheckIn: Dispatch<SetStateAction<ResponseType | null>>;
+  setIsEditOpen: Dispatch<SetStateAction<boolean>>;
+  setIsDetailsOpen: Dispatch<SetStateAction<boolean>>;
+  isTrashed: boolean;
 }
 
-export function MemberAttendanceHistory({ organizationId }: Props) {
-  const queryClient = new QueryClient();
-  const [selectedCheckIn, setSelectedCheckIn] = useState<ResponseType | null>(
-    null
-  );
-  const [isDetailsOpen, setIsDetailsOpen] = useState(false);
-  const { refetch: checkRefetch } = useGetCheck(organizationId!);
-  const [states, setStates] = useState({
-    onTime: 0,
-    lates: 0,
-    leaves: 0,
-  });
-  const [duration, setDuration] = useState<
-    "today" | "this week" | "this month" | "this year"
-  >("today");
+export const CheckInOutCard = ({
+  selectedMember,
+  setSelectedMember,
+  organizationData,
+  duration,
+  setDuration,
+  data,
+  states,
+  setSelectedCheckIn,
+  setIsDetailsOpen,
+  setIsEditOpen,
+  isTrashed,
+}: Props) => {
+  const queryClient = useQueryClient();
 
-  const { data, isPending, refetch } = useQuery({
-    queryKey: ["member-attendance-history"],
-    queryFn: async () => {
-      const timezone = Intl.DateTimeFormat().resolvedOptions().timeZone;
-      const res = await axiosInstance.get(
-        `/member/check/check-attendance/${organizationId}?duration=${duration}&timezone=${timezone}`
-      );
-      return res.data as ResponseType[];
-    },
-  });
-  const resumeCheckInMutation = useMutation({
-    mutationFn: async (checkId: string) => {
-      const response = await axiosInstance.post(
-        "/member/check/resume-check-in",
-        { checkId }
+  const deleteMutation = useMutation({
+    mutationFn: async ({
+      id,
+      type,
+    }: {
+      id: string;
+      type: "check" | "leave";
+    }) => {
+      const response = await axiosInstance.put(
+        `/admin/checks/delete/${id}/${type}`
       );
       return response.data;
     },
     onSuccess: () => {
-      queryClient.invalidateQueries({
-        queryKey: ["get-check"],
-      });
-      queryClient.invalidateQueries({
-        queryKey: ["member-attendance-analytics"],
-      });
-      queryClient.invalidateQueries({
-        queryKey: ["member-checks-analytics"],
-      });
+      toast.success("Check remove successfully");
       queryClient.invalidateQueries({
         queryKey: ["member-attendance-history"],
       });
-      checkRefetch();
     },
     onError: (error: AxiosError<{ message: string }>) => {
-      toast.error(error.response?.data.message || "Something went wrong");
+      const errorMessage =
+        error?.response?.data?.message || "Something went wrong!";
+      toast.error(errorMessage);
     },
   });
 
-  useEffect(() => {
-    if (data) {
-      const leaves = data.filter(
-        (item) => item && item.type === "Leave"
-      ).length;
-      const lates = data.filter(
-        (item) => item && item.isCheckInLate && item.type !== "Leave"
-      ).length;
-      const onTime = data.filter(
-        (item) => item && !item.isCheckInLate && item.type !== "Leave"
-      ).length;
-      setStates({ leaves, lates, onTime });
-    }
-  }, [data, isPending]);
-
-  useEffect(() => {
-    if (duration) {
-      refetch();
-    }
-  }, [duration]);
+  const restoreMutation = useMutation({
+    mutationFn: async ({
+      id,
+      type,
+    }: {
+      id: string;
+      type: "check" | "leave";
+    }) => {
+      const response = await axiosInstance.put(
+        `/admin/checks/restore/${id}/${type}`
+      );
+      return response.data;
+    },
+    onSuccess: () => {
+      toast.success("Check remove successfully");
+      queryClient.invalidateQueries({
+        queryKey: ["member-attendance-history"],
+      });
+    },
+    onError: (error: AxiosError<{ message: string }>) => {
+      const errorMessage =
+        error?.response?.data?.message || "Something went wrong!";
+      toast.error(errorMessage);
+    },
+  });
 
   const getTotalTime = ({
     checkInTime,
@@ -169,15 +140,15 @@ export function MemberAttendanceHistory({ organizationId }: Props) {
     const minutes = Math.floor((diff % 3600000) / 60000);
     const seconds = Math.floor((diff % 60000) / 1000);
     return `
-            ${String(hours).padStart(2, "0")}
+                ${String(hours).padStart(2, "0")}
+                :
+                ${String(minutes).padStart(2, "0")}
             :
-            ${String(minutes).padStart(2, "0")}
-        :
-        ${String(seconds).padStart(2, "0")}
-          `;
+            ${String(seconds).padStart(2, "0")}
+              `;
   };
 
-  const getTotalBreaksTime = (breaks: Breaks) => {
+  const getTotalBreakTime = (breaks: Breaks) => {
     let diff = 0;
 
     breaks?.forEach((item) => {
@@ -190,51 +161,64 @@ export function MemberAttendanceHistory({ organizationId }: Props) {
     if (diff === 0) {
       return "--";
     }
+    console.log("Diff ", diff);
     const hours = Math.floor(diff / 3600000);
     const minutes = Math.floor((diff % 3600000) / 60000);
     const seconds = Math.floor((diff % 60000) / 1000);
     return `
-            ${String(hours).padStart(2, "0")}
+                ${String(hours).padStart(2, "0")}
+                :
+                ${String(minutes).padStart(2, "0")}
             :
-            ${String(minutes).padStart(2, "0")}
-        :
-        ${String(seconds).padStart(2, "0")}
-          `;
+            ${String(seconds).padStart(2, "0")}
+              `;
   };
 
-  if (isPending) {
-    return <div>Loading...</div>;
-  }
+  console.log(data);
 
   return (
     <Card className="shadow-medium">
-      <CheckInDetailsDialog
-        isOpen={isDetailsOpen}
-        setIsOpen={setIsDetailsOpen}
-        checkInData={selectedCheckIn}
-        setCheckInData={setSelectedCheckIn}
-      />
       <CardHeader className="flex items-center justify-between">
         <div className="flex items-center justify-between w-full">
           <CardTitle className="flex items-center gap-2">
             <Calendar className="h-5 w-5 text-primary" />
             Recent Attendance
           </CardTitle>
-          <Select
-            value={duration}
-            defaultValue="today"
-            onValueChange={(value) => setDuration(value as typeof duration)}
-          >
-            <SelectTrigger>
-              <SelectValue placeholder="Select duration" />
-            </SelectTrigger>
-            <SelectContent>
-              <SelectItem value="today">Today</SelectItem>
-              <SelectItem value="this week">This Week</SelectItem>
-              <SelectItem value="this month">This Month</SelectItem>
-              <SelectItem value="this year">This Year</SelectItem>
-            </SelectContent>
-          </Select>
+          <div className="flex items-center gap-3">
+            <Select
+              value={selectedMember}
+              defaultValue="all"
+              onValueChange={setSelectedMember}
+            >
+              <SelectTrigger>
+                <SelectValue placeholder="Select duration" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="all">All</SelectItem>
+                {organizationData?.members?.map((member: any) => (
+                  <SelectItem value={member?.member?.email}>
+                    {member?.member?.name}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+
+            <Select
+              value={duration}
+              defaultValue="today"
+              onValueChange={(value) => setDuration(value as typeof duration)}
+            >
+              <SelectTrigger>
+                <SelectValue placeholder="Select duration" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="today">Today</SelectItem>
+                <SelectItem value="this week">This Week</SelectItem>
+                <SelectItem value="this month">This Month</SelectItem>
+                <SelectItem value="this year">This Year</SelectItem>
+              </SelectContent>
+            </Select>
+          </div>
         </div>
       </CardHeader>
       <CardContent>
@@ -290,6 +274,8 @@ export function MemberAttendanceHistory({ organizationId }: Props) {
             <Table>
               <TableHeader>
                 <TableRow>
+                  <TableHead>Edited</TableHead>
+                  <TableHead>Name</TableHead>
                   <TableHead>Date</TableHead>
                   <TableHead>Check In</TableHead>
                   <TableHead>Check Out</TableHead>
@@ -307,12 +293,22 @@ export function MemberAttendanceHistory({ organizationId }: Props) {
                       .filter((item) => item)
                       .map((item, index) => {
                         return (
-                          <TableRow
-                            key={index}
-                            className={cn(
-                              selectedCheckIn?.id === item.id && "bg-primary/20"
-                            )}
-                          >
+                          <TableRow key={index}>
+                            <TableCell>
+                              {item.isUpdate ? (
+                                // <PencilIcon className="text-green-500 size-5" />
+                                <Badge className="bg-foreground text-white flex items-center gap-1">
+                                  <PencilIcon className="size-2.5" /> Edited
+                                </Badge>
+                              ) : (
+                                "--"
+                              )}
+                            </TableCell>
+                            <TableCell className="flex flex-col">
+                              <Badge>{item.member.info[0].designation}</Badge>
+                              {item.member.name}
+                            </TableCell>
+
                             <TableCell className="font-medium">
                               {new Date(item.createdAt).toLocaleDateString(
                                 "en-US",
@@ -359,12 +355,14 @@ export function MemberAttendanceHistory({ organizationId }: Props) {
                                 })}
                             </TableCell>
                             <TableCell className="font-mono">
-                              {item?.breaks?.length || 0}
+                              {item.type === "Leave"
+                                ? "--"
+                                : item?.breaks?.length || 0}
                             </TableCell>
                             <TableCell className="font-mono">
                               <div className="flex items-center gap-1">
                                 {/* <Clock className="h-3 w-3 text-muted-foreground" /> */}
-                                {getTotalBreaksTime(item.breaks)}
+                                {getTotalBreakTime(item.breaks)}
                               </div>
                             </TableCell>
                             <TableCell>
@@ -396,46 +394,14 @@ export function MemberAttendanceHistory({ organizationId }: Props) {
                                   </Button>
                                 </DropdownMenuTrigger>
                                 <DropdownMenuContent>
-                                  {item.type !== "Leave" && (
-                                    <AlertDialog>
-                                      <AlertDialogTrigger asChild>
-                                        <DropdownMenuItem
-                                          onSelect={(e) => e.preventDefault()}
-                                        >
-                                          Resume Check In
-                                        </DropdownMenuItem>
-                                      </AlertDialogTrigger>
-
-                                      <AlertDialogContent>
-                                        <AlertDialogHeader>
-                                          <AlertDialogTitle>
-                                            Are you sure you want to resume this
-                                            Check In?
-                                          </AlertDialogTitle>
-                                          <AlertDialogDescription>
-                                            If you continue, the check-in will
-                                            be resumed.
-                                          </AlertDialogDescription>
-                                        </AlertDialogHeader>
-
-                                        <AlertDialogFooter>
-                                          <AlertDialogCancel>
-                                            Cancel
-                                          </AlertDialogCancel>
-                                          <AlertDialogAction
-                                            onClick={() =>
-                                              resumeCheckInMutation.mutate(
-                                                item.id
-                                              )
-                                            }
-                                          >
-                                            Continue
-                                          </AlertDialogAction>
-                                        </AlertDialogFooter>
-                                      </AlertDialogContent>
-                                    </AlertDialog>
-                                  )}
-
+                                  <DropdownMenuItem
+                                    onClick={() => {
+                                      setSelectedCheckIn(item);
+                                      setIsEditOpen(true);
+                                    }}
+                                  >
+                                    Edit
+                                  </DropdownMenuItem>
                                   <DropdownMenuItem
                                     onClick={() => {
                                       setSelectedCheckIn(item);
@@ -444,6 +410,36 @@ export function MemberAttendanceHistory({ organizationId }: Props) {
                                   >
                                     View Full Details
                                   </DropdownMenuItem>
+                                  {isTrashed ? (
+                                    <DropdownMenuItem
+                                      onClick={() =>
+                                        restoreMutation.mutate({
+                                          id: item.id,
+                                          type:
+                                            item.type === "Leave"
+                                              ? "leave"
+                                              : "check",
+                                        })
+                                      }
+                                    >
+                                      Restore
+                                    </DropdownMenuItem>
+                                  ) : (
+                                    <DropdownMenuItem
+                                      variant="destructive"
+                                      onClick={() =>
+                                        deleteMutation.mutate({
+                                          id: item.id,
+                                          type:
+                                            item.type === "Leave"
+                                              ? "leave"
+                                              : "check",
+                                        })
+                                      }
+                                    >
+                                      Delete
+                                    </DropdownMenuItem>
+                                  )}
                                 </DropdownMenuContent>
                               </DropdownMenu>
                             </TableCell>
@@ -458,4 +454,4 @@ export function MemberAttendanceHistory({ organizationId }: Props) {
       </CardContent>
     </Card>
   );
-}
+};

@@ -1,59 +1,23 @@
 "use client";
-import {
-  Calendar,
-  CheckIcon,
-  Clock,
-  ClockIcon,
-  EllipsisVerticalIcon,
-  NotepadTextIcon,
-  PencilIcon,
-  ScrollTextIcon,
-  XIcon,
-} from "lucide-react";
-import {
-  Table,
-  TableBody,
-  TableCell,
-  TableHead,
-  TableHeader,
-  TableRow,
-} from "@/components/ui/table";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { axiosInstance } from "@/lib/axios-instance";
-import Image from "next/image";
-import { useEffect, useState } from "react";
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "@/components/ui/select";
-import { organizationStore } from "@/zustand/member.store";
-import { useGetAdminOrganization } from "@/lib/common-query";
+
+import { CheckInOutCard } from "@/components/dashboard/admin/check-in-out-card";
+import { EmptyOrganization } from "@/components/empty-organization";
+import { ErrorCard } from "@/components/error-card";
 import { LoadingScreen } from "@/components/loading-screen";
 import OrganizationInfo from "@/components/organization-info";
-import { EmptyOrganization } from "@/components/empty-organization";
 import { NoOrganization } from "@/constant";
-import { ErrorCard } from "@/components/error-card";
 import { useGetQueryError } from "@/hooks/use-get-query-error";
-import { AxiosError } from "axios";
-import { CheckInDetailsDialog } from "./components/check-in-details-dialog";
-import {
-  DropdownMenu,
-  DropdownMenuContent,
-  DropdownMenuItem,
-  DropdownMenuTrigger,
-} from "@/components/ui/dropdown-menu";
-import { Button } from "@/components/ui/button";
-import { Badge } from "@/components/ui/badge";
-import { EditCheckInDialog } from "./components/edit-check-in-dialog";
-import { toast } from "sonner";
-import { CheckInOutCard } from "@/components/dashboard/admin/check-in-out-card";
+import { axiosInstance } from "@/lib/axios-instance";
+import { useGetAdminOrganization } from "@/lib/common-query";
 import { ResponseType } from "@/lib/schema";
+import { organizationStore } from "@/zustand/member.store";
+import { useQuery } from "@tanstack/react-query";
+import { AxiosError } from "axios";
+import { useEffect, useState } from "react";
+import { CheckInDetailsDialog } from "../checkInOut/components/check-in-details-dialog";
+import { EditCheckInDialog } from "../checkInOut/components/edit-check-in-dialog";
 
-export function CheckInOutView() {
+export const TrashCheckInOutView = () => {
   const { selectedOrganizationId } = organizationStore();
   const [selectedMember, setSelectedMember] = useState("all");
   const [isDetailsOpen, setIsDetailsOpen] = useState(false);
@@ -90,15 +54,17 @@ export function CheckInOutView() {
     queryFn: async () => {
       const timezone = Intl.DateTimeFormat().resolvedOptions().timeZone;
       const res = await axiosInstance.get(
-        `/admin/checks/check-attendance/${selectedOrganizationId}?duration=${duration}&selectedMember=${selectedMember}&timezone=${timezone}&isTrash=false`
+        `/admin/checks/check-attendance/${selectedOrganizationId}?duration=${duration}&selectedMember=${selectedMember}&timezone=${timezone}&isTrash=true`
       );
       return res.data as ResponseType[];
     },
     retry: !!selectedOrganizationId,
   });
+
   useEffect(() => {
     organizationRefetch();
   }, []);
+
   useEffect(() => {
     if (data) {
       const leaves = data.filter(
@@ -152,7 +118,7 @@ export function CheckInOutView() {
       <div className="flex flex-col gap-5">
         <div className="flex flex-col gap-3">
           <h2 className="text text-neutral-700 font-semibold text-xl">
-            Check In / Out History
+            Deleted Check In / Out History
           </h2>
           <CheckInOutCard
             selectedMember={selectedMember}
@@ -165,10 +131,10 @@ export function CheckInOutView() {
             setSelectedCheckIn={setSelectedCheckIn}
             setIsDetailsOpen={setIsDetailsOpen}
             setIsEditOpen={setIsEditOpen}
-            isTrashed={false}
+            isTrashed
           />
         </div>
       </div>
     </div>
   );
-}
+};

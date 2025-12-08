@@ -27,7 +27,7 @@ export const SocketProvider = ({ children }: { children: ReactNode }) => {
       const ipData = await response.json();
       const ip = ipData.ip;
       // Connect ws to server on the base of role
-      const socketIo = io("https://backend.taskhuddle.live", {
+      const socketIo = io("https://taskhuddle.live", {
         path: `/${role}/socket.io/`,
         transports: ["websocket"],
         withCredentials: true,

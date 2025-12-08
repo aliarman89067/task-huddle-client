@@ -5,6 +5,7 @@ import { FaTasks, FaUsers } from "react-icons/fa";
 import { LuClock } from "react-icons/lu";
 import { IoChatboxOutline } from "react-icons/io5";
 import { IoMdSettings } from "react-icons/io";
+import { CgDetailsMore } from "react-icons/cg";
 
 export const NAVBAR_LINKS = [
   {
@@ -71,6 +72,13 @@ export const ADMIN_SIDEBAR_LINKS = [
     icon: IoMdSettings,
     isDropdown: true,
   },
+  {
+    id: 8,
+    label: "More",
+    href: "/dashboard/more",
+    icon: CgDetailsMore,
+    isDropdown: true,
+  },
 ];
 
 export const ADMIN_SETTINGS_LINKS = [
@@ -89,6 +97,14 @@ export const ADMIN_SETTINGS_LINKS = [
   //   label: "Appearance",
   //   href: "/dashboard/appearance",
   // },
+];
+
+export const ADMIN_MORE_LINKS = [
+  {
+    id: 1,
+    label: "Trash Check In / Out",
+    href: "/dashboard/check-in-out/trash",
+  },
 ];
 
 export const MEMBER_SIDEBAR_LINKS = [

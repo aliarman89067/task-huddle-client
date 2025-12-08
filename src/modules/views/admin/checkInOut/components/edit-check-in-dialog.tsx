@@ -22,44 +22,12 @@ import { axiosInstance } from "@/lib/axios-instance";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { AxiosError } from "axios";
-import { Dispatch, SetStateAction, useEffect, useRef } from "react";
+import { Dispatch, SetStateAction, useEffect, useRef, useState } from "react";
 import { useForm } from "react-hook-form";
+import dayjs from "dayjs";
 import { toast } from "sonner";
 import z from "zod";
-
-type Breaks = {
-  id: string;
-  type: "BreakIn" | "BreakOut";
-  breakInTime: Date;
-  breakOutTime: Date;
-}[];
-
-type ResponseType = {
-  id: string;
-  type?: string;
-  createdAt: Date;
-  checkInTime?: Date | null;
-  checkOutTime?: Date | null;
-  isCheckInLate?: boolean;
-  isCheckOutEarly?: boolean;
-  checkInDifference?: number | null;
-  checkOutDifference?: number | null;
-  checkInMessage?: string | null;
-  checkOutMessage?: string | null;
-  isGrace?: boolean;
-  reason?: string | null;
-  leaveDate?: Date | null;
-  breaks: Breaks;
-  member: {
-    id: string;
-    email: string;
-    name: string;
-    image: string | null;
-    info: {
-      designation: string;
-    }[];
-  };
-};
+import { ResponseType } from "@/lib/schema";
 
 const formSchema = z.object({
   checkId: z.string(),
@@ -81,6 +49,7 @@ interface Props {
   setIsOpen: Dispatch<SetStateAction<boolean>>;
   checkInData: ResponseType | null;
   setCheckInData: Dispatch<SetStateAction<ResponseType | null>>;
+  refetch: () => void;
 }
 
 export const EditCheckInDialog = ({
@@ -88,17 +57,21 @@ export const EditCheckInDialog = ({
   setIsOpen,
   checkInData,
   setCheckInData,
+  refetch,
 }: Props) => {
   const queryClient = useQueryClient();
   const checkInRef = useRef<HTMLInputElement | null>(null);
   const checkOutRef = useRef<HTMLInputElement | null>(null);
+  const [leaveText, setLeaveText] = useState("");
 
   const breakInRefs = useRef<HTMLInputElement[]>([]);
   const breakOutRefs = useRef<HTMLInputElement[]>([]);
 
   // Mutation
   const checkUpdateMutate = useMutation({
-    mutationFn: async (data: z.infer<typeof formSchema>) => {
+    mutationFn: async (
+      data: z.infer<typeof formSchema> & { timezone: string }
+    ) => {
       const response = await axiosInstance.put("/admin/checks/update", data);
       return response.data;
     },
@@ -107,6 +80,29 @@ export const EditCheckInDialog = ({
       queryClient.invalidateQueries({
         queryKey: ["member-attendance-history"],
       });
+      refetch();
+      setIsOpen(false);
+    },
+    onError: (error: AxiosError<{ message: string }>) => {
+      const errorMessage =
+        error?.response?.data?.message || "Something went wrong!";
+      toast.error(errorMessage);
+    },
+  });
+  const leaveUpdateMutate = useMutation({
+    mutationFn: async (leaveId: string) => {
+      const response = await axiosInstance.put("/admin/checks/update-leave", {
+        leaveId,
+        reason: leaveText,
+      });
+      return response.data;
+    },
+    onSuccess: () => {
+      toast.success("Leave updated successfully");
+      queryClient.invalidateQueries({
+        queryKey: ["member-attendance-history"],
+      });
+      refetch();
       setIsOpen(false);
     },
     onError: (error: AxiosError<{ message: string }>) => {
@@ -128,23 +124,20 @@ export const EditCheckInDialog = ({
     },
   });
 
-  const getTime = (time?: Date | null) => {
+  const getDateTime = (time?: Date | null) => {
     if (!time) return "";
-    return (
-      String(new Date(time).getHours()).padStart(2, "0") +
-      ":" +
-      String(new Date(time).getMinutes()).padStart(2, "0")
-    );
+    return dayjs(time).format("YYYY-MM-DDTHH:mm");
   };
 
   useEffect(() => {
     if (!checkInData) return;
+    setLeaveText(checkInData?.reason || "");
     const isCheckInLate = JSON.stringify(checkInData.isCheckInLate);
     const isCheckOutEarly = JSON.stringify(checkInData.isCheckOutEarly);
     form.reset({
       checkId: checkInData.id,
-      checkIn: getTime(checkInData.checkInTime) || undefined,
-      checkOut: getTime(checkInData.checkOutTime) || undefined,
+      checkIn: getDateTime(checkInData.checkInTime) || undefined,
+      checkOut: getDateTime(checkInData.checkOutTime) || undefined,
       isLate:
         isCheckInLate === "true"
           ? "late"
@@ -157,23 +150,25 @@ export const EditCheckInDialog = ({
           : isCheckInLate === "false"
           ? "on_time"
           : undefined,
-      breaks: checkInData.breaks.map((item) => ({
-        breakId: item.id,
-        breakIn: getTime(item.breakInTime) || undefined,
-        breakOut: getTime(item.breakOutTime) || undefined,
-      })),
+      breaks:
+        checkInData?.breaks?.map((item) => ({
+          breakId: item.id,
+          breakIn: getDateTime(item.breakInTime) || undefined,
+          breakOut: getDateTime(item.breakOutTime) || undefined,
+        })) || [],
     });
   }, [checkInData]);
 
   const handleSubmit = (data: z.infer<typeof formSchema>) => {
-    checkUpdateMutate.mutate(data);
+    const timezone = Intl.DateTimeFormat().resolvedOptions().timeZone;
+    checkUpdateMutate.mutate({ ...data, timezone });
   };
 
   if (!checkInData) {
     setIsOpen(false);
     return;
   }
-
+  console.log(checkInData);
   return (
     <Dialog
       open={isOpen}
@@ -206,8 +201,51 @@ export const EditCheckInDialog = ({
               </h3>
             </div>
           </div>
-          {checkInData.type === "Leave" && <></>}
-          {(checkInData.type === "CheckIn" || "CheckOut") && (
+          {checkInData.type === "Leave" && (
+            <div className="flex flex-col gap-2 mt-3">
+              <div className="flex flex-col">
+                <span>
+                  {new Date(checkInData?.createdAt || "").toLocaleDateString()}
+                </span>
+                <h3 className="text-3xl font-extrabold text-neutral-800">
+                  Leave
+                </h3>
+              </div>
+              <form
+                onSubmit={(e) => {
+                  e.preventDefault();
+                  leaveUpdateMutate.mutate(checkInData.id);
+                }}
+              >
+                <Input
+                  disabled={leaveUpdateMutate.isPending}
+                  placeholder="Sick Leave..."
+                  value={leaveText}
+                  onChange={(e) => setLeaveText(e.target.value)}
+                />
+
+                <div className="flex items-center gap-3 mt-3">
+                  <Button
+                    type="button"
+                    disabled={leaveUpdateMutate.isPending}
+                    onClick={() => setIsOpen(false)}
+                    className="flex-1 bg-rose-400 hover:bg-rose-500"
+                  >
+                    Cancel
+                  </Button>
+                  <Button
+                    disabled={leaveUpdateMutate.isPending}
+                    type="submit"
+                    className="flex-1"
+                  >
+                    {leaveUpdateMutate.isPending ? "Updating..." : "Update"}
+                  </Button>
+                </div>
+              </form>
+            </div>
+          )}
+          {(checkInData.type === "CheckIn" ||
+            checkInData.type === "CheckOut") && (
             <Form {...form}>
               <form
                 className="flex flex-col gap-2 mt-4"
@@ -224,7 +262,7 @@ export const EditCheckInDialog = ({
                           <Input
                             onClick={() => checkInRef?.current?.showPicker()}
                             ref={checkInRef}
-                            type="time"
+                            type="datetime-local"
                             {...rest}
                           />
                         </FormControl>
@@ -242,7 +280,7 @@ export const EditCheckInDialog = ({
                           <Input
                             onClick={() => checkOutRef?.current?.showPicker()}
                             ref={checkOutRef}
-                            type="time"
+                            type="datetime-local"
                             {...rest}
                           />
                         </FormControl>
@@ -303,7 +341,7 @@ export const EditCheckInDialog = ({
                 </div>
                 <div className="flex flex-col gap-1 mt-2">
                   <span className="text-neutral-800 font-medium text-sm">
-                    {checkInData.breaks.length || 0} Breaks
+                    {checkInData?.breaks?.length || 0} Breaks
                   </span>
                   <FormField
                     control={form.control}
@@ -332,7 +370,7 @@ export const EditCheckInDialog = ({
                                       e.target.value;
                                     field.onChange(updatedValue);
                                   }}
-                                  type="time"
+                                  type="datetime-local"
                                 />
                                 <Input
                                   onClick={() =>
@@ -349,7 +387,7 @@ export const EditCheckInDialog = ({
                                       e.target.value;
                                     field.onChange(updatedValue);
                                   }}
-                                  type="time"
+                                  type="datetime-local"
                                 />
                               </div>
                             ))}

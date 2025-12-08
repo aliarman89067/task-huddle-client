@@ -295,7 +295,10 @@ export function CheckInBox({ organizationId }: Props) {
                 <button
                   disabled={breakMutation.isPending}
                   onClick={() => handleBreak(check?.id!)}
-                  className="relative group w-[200px] h-[65px] cursor-pointer active:opacity-90"
+                  className={cn(
+                    "relative group w-[200px] h-[65px] cursor-pointer active:opacity-90",
+                    breakMutation.isPending && "opacity-70 cursor-not-allowed"
+                  )}
                 >
                   <div
                     className={cn(
@@ -320,7 +323,10 @@ export function CheckInBox({ organizationId }: Props) {
                 <button
                   disabled={checkMutation.isPending}
                   onClick={handleCheck}
-                  className="relative group w-[200px] h-[65px] cursor-pointer active:opacity-90"
+                  className={cn(
+                    "relative group w-[200px] h-[65px] cursor-pointer active:opacity-90",
+                    checkMutation.isPending && "opacity-70 cursor-not-allowed"
+                  )}
                 >
                   <div
                     className={cn(
@@ -332,8 +338,14 @@ export function CheckInBox({ organizationId }: Props) {
                         "w-full h-full bg-rose-400 text-white rounded-xl flex items-center justify-center gap-2"
                       )}
                     >
-                      <span>Check Out</span>
-                      <ArrowRightIcon className="size-4 group-hover:translate-x-1 transition-all duration-300" />
+                      {checkMutation.isPending ? (
+                        <span>Please Wait</span>
+                      ) : (
+                        <>
+                          <span>Check Out</span>
+                          <ArrowRightIcon className="size-4 group-hover:translate-x-1 transition-all duration-300" />
+                        </>
+                      )}
                     </div>
                     <div className="h-[200px] w-[45px] absolute -top-20 -left-20 rotate-[40deg] bg-foreground/10 group-hover:left-[105%] transition-all duration-500 ease-in-out z-10" />
                   </div>
@@ -343,7 +355,10 @@ export function CheckInBox({ organizationId }: Props) {
               <button
                 disabled={checkMutation.isPending}
                 onClick={handleCheck}
-                className="relative group w-[350px] h-[65px] cursor-pointer active:opacity-90"
+                className={cn(
+                  "relative group w-[350px] h-[65px] cursor-pointer active:opacity-90",
+                  checkMutation.isPending && "opacity-70 cursor-not-allowed"
+                )}
               >
                 <div
                   className={cn(
@@ -355,8 +370,14 @@ export function CheckInBox({ organizationId }: Props) {
                       "w-full h-full bg-white text-neutral-800 rounded-xl flex items-center justify-center gap-2"
                     )}
                   >
-                    <span>Check In</span>
-                    <ArrowRightIcon className="size-4 group-hover:translate-x-1 transition-all duration-300" />
+                    {checkMutation.isPending ? (
+                      <span>Please Wait</span>
+                    ) : (
+                      <>
+                        <span>Check In</span>
+                        <ArrowRightIcon className="size-4 group-hover:translate-x-1 transition-all duration-300" />
+                      </>
+                    )}
                   </div>
                   <div className="h-[200px] w-[45px] absolute -top-20 -left-20 rotate-[40deg] bg-foreground/10 group-hover:left-[105%] transition-all duration-500 ease-in-out z-10" />
                 </div>

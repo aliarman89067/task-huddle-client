@@ -1,5 +1,4 @@
 "use client";
-
 import { useGetAdminOrganization } from "@/lib/common-query";
 import { IPSettings } from "./components/ip-settings";
 import { organizationStore } from "@/zustand/member.store";

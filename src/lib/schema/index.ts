@@ -64,3 +64,38 @@ export const UpdateProjectMemberFormSchema = z.object({
 export type UpdateProjectMemberFormSchemaType = z.infer<
   typeof UpdateProjectMemberFormSchema
 >;
+
+export type Breaks = {
+  id: string;
+  type: "BreakIn" | "BreakOut";
+  breakInTime: Date;
+  breakOutTime: Date;
+}[];
+
+export type ResponseType = {
+  id: string;
+  type?: string;
+  createdAt: Date;
+  checkInTime?: Date | null;
+  checkOutTime?: Date | null;
+  isCheckInLate?: boolean;
+  isCheckOutEarly?: boolean;
+  checkInDifference?: number | null;
+  checkOutDifference?: number | null;
+  checkInMessage?: string | null;
+  checkOutMessage?: string | null;
+  isGrace?: boolean;
+  reason?: string | null;
+  leaveDate?: Date | null;
+  breaks: Breaks;
+  isUpdate: boolean;
+  member: {
+    id: string;
+    email: string;
+    name: string;
+    image: string | null;
+    info: {
+      designation: string;
+    }[];
+  };
+};

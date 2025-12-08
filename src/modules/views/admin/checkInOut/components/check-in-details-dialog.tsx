@@ -15,43 +15,10 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table";
+import { Breaks, ResponseType } from "@/lib/schema";
 import { cn } from "@/lib/utils";
 import { ClockIcon, MessageSquareIcon } from "lucide-react";
 import { Dispatch, SetStateAction } from "react";
-
-type Breaks = {
-  id: string;
-  type: "BreakIn" | "BreakOut";
-  breakInTime: Date;
-  breakOutTime: Date;
-}[];
-
-type ResponseType = {
-  id: string;
-  type?: string;
-  createdAt: Date;
-  checkInTime?: Date | null;
-  checkOutTime?: Date | null;
-  isCheckInLate?: boolean;
-  isCheckOutEarly?: boolean;
-  checkInDifference?: number | null;
-  checkOutDifference?: number | null;
-  checkInMessage?: string | null;
-  checkOutMessage?: string | null;
-  isGrace?: boolean;
-  reason?: string | null;
-  leaveDate?: Date | null;
-  breaks: Breaks;
-  member: {
-    id: string;
-    email: string;
-    name: string;
-    image: string | null;
-    info: {
-      designation: string;
-    }[];
-  };
-};
 
 interface Props {
   isOpen: boolean;
