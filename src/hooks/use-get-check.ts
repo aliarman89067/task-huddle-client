@@ -31,7 +31,6 @@ export const useGetCheck = (organizationId: string) => {
       return res.data as checkType;
     },
     retry: false,
-    refetchOnWindowFocus: false,
   });
 
   return {
