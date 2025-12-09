@@ -8,7 +8,12 @@ interface Props {
 
 export const MaxWidthWrapper = ({ children, className }: Props) => {
   return (
-    <div className={cn("max-w-6xl w-full mx-auto px-2", className)}>
+    <div
+      className={cn(
+        "2xl:max-w-7xl xl:max-w-6xl w-full mx-auto px-2",
+        className
+      )}
+    >
       {children}
     </div>
   );

@@ -100,7 +100,7 @@ const MemberSidebar = () => {
               height={25}
               className="object-contain"
             />
-            <span className="text-white font-semibold text-lg">Taskery</span>
+            <span className="text-white font-semibold text-lg">Taskhuddle</span>
           </Link>
         </HideOnExpand>
         <button

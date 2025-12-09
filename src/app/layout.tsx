@@ -17,7 +17,7 @@ const nunitoSans = Nunito_Sans({
 });
 
 export const metadata: Metadata = {
-  title: "Taskery",
+  title: "Taskhuddle",
   description: "Webapp for managing organizatoions.",
 };
 
