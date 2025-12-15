@@ -127,6 +127,13 @@ export const OrganizationView = ({ id }: Props) => {
             </Button>
           </DropdownMenuTrigger>
           <DropdownMenuContent>
+            <DropdownMenuItem
+              onClick={() =>
+                router.push(`/dashboard/organizations/${id}/add-team-leave`)
+              }
+            >
+              Add Team Leaves
+            </DropdownMenuItem>
             <DropdownMenuItem onClick={() => setIsUpdate(true)}>
               Update Organization
             </DropdownMenuItem>
@@ -305,6 +312,7 @@ const DeleteOrganizationDialog = ({
         </AlertDialogHeader>
         <AlertDialogFooter>
           <AlertDialogAction
+            className="bg-rose-400 hover:bg-rose-500"
             onClick={() => deleteOrganizationMutation.mutate()}
           >
             Delete

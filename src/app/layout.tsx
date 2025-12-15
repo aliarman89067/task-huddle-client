@@ -1,9 +1,9 @@
-import type { Metadata } from "next";
 import { Sansita, Nunito_Sans } from "next/font/google";
-import "./globals.css";
 import Providers from "@/lib/providers";
 import { Toaster } from "@/components/ui/sonner";
 import { SocketProvider } from "@/lib/socket-context";
+import type { Metadata } from "next";
+import "./globals.css";
 
 const sansita = Sansita({
   variable: "--font-sansita",

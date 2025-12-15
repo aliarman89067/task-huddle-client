@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from "react";
+import { useContext, useEffect, useRef, useState } from "react";
 import { ArrowRightIcon, LoaderIcon } from "lucide-react";
 import { toast } from "sonner";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
@@ -11,6 +11,7 @@ import { useRouter } from "next/navigation";
 import { IPErrorMessage } from "@/constant";
 import { IPErrorDialog } from "@/components/dialogs/ip-error-dialog";
 import { useGetCheck } from "@/hooks/use-get-check";
+import { SocketContext } from "@/lib/socket-context";
 
 interface Props {
   organizationId: string;
@@ -28,6 +29,7 @@ export function CheckInBox({ organizationId }: Props) {
   const [isErrorOpen, setIsErrorOpen] = useState(false);
 
   const queryClient = useQueryClient();
+  const socket = useContext(SocketContext);
   const { selectedOrganizationId } = organizationStore();
   const { check, isPending, refetch } = useGetCheck(selectedOrganizationId!);
 
@@ -141,6 +143,36 @@ export function CheckInBox({ organizationId }: Props) {
       toast.error(message);
     },
   });
+
+  useEffect(() => {
+    if (!socket) return;
+    const handleAutoCheckOut = () => {
+      setIsCheckedIn(false);
+      setIsBreakIn(false);
+      setBreakInTime(null);
+      setBreakInTimeElapsed("00:00:00");
+      toast.success("Auto checkout successfully", {
+        description: `Total time ${checkInTimeElapsed}`,
+      });
+      queryClient.invalidateQueries({
+        queryKey: ["get-check"],
+      });
+      queryClient.invalidateQueries({
+        queryKey: ["member-attendance-analytics"],
+      });
+      queryClient.invalidateQueries({
+        queryKey: ["member-checks-analytics"],
+      });
+      queryClient.invalidateQueries({
+        queryKey: ["member-attendance-history"],
+      });
+    };
+
+    socket.on("auto-check-out", handleAutoCheckOut);
+    return () => {
+      socket.off("auto-check-out", handleAutoCheckOut);
+    };
+  }, [socket, isCheckedIn, checkedInTime, checkInTimeElapsed]);
 
   useEffect(() => {
     return () => {

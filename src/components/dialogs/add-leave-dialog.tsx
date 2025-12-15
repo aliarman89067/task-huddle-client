@@ -1,4 +1,4 @@
-import { Dispatch, SetStateAction, useEffect } from "react";
+import { Dispatch, SetStateAction, useEffect, useRef, useState } from "react";
 import {
   Dialog,
   DialogContent,
@@ -24,7 +24,13 @@ import { toast } from "sonner";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { AxiosError } from "axios";
 import { axiosInstance } from "@/lib/axios-instance";
-import { LoaderIcon, ScrollTextIcon } from "lucide-react";
+import {
+  CircleAlertIcon,
+  LoaderIcon,
+  ScrollTextIcon,
+  XIcon,
+} from "lucide-react";
+import { Input } from "../ui/input";
 
 type MembersDataType = {
   id: string;
@@ -46,7 +52,15 @@ export const AddLeaveDialog = ({
   setIsDialogOpen,
   organizationId,
 }: AddLeaveDialogProps) => {
+  const [errors, setErrors] = useState<{
+    type: "CHECK_EXIST";
+    message: string;
+  } | null>(null);
+  const dateInputRef = useRef<HTMLInputElement | null>(null);
   const formSchema = z.object({
+    leaveDates: z
+      .array(z.string())
+      .min(1, { message: "Please select atleast 1 date!" }),
     reason: z.string().optional(),
   });
 
@@ -56,6 +70,7 @@ export const AddLeaveDialog = ({
     resolver: zodResolver(formSchema),
     defaultValues: {
       reason: "",
+      leaveDates: [],
     },
   });
 
@@ -79,6 +94,8 @@ export const AddLeaveDialog = ({
       reason?: string;
       memberId: string;
       organizationId: string;
+      leaveDates: string[];
+      timezone: string;
     }) => {
       const res = await axiosInstance.post("/admin/members/leave", data);
       return res.data;
@@ -94,6 +111,13 @@ export const AddLeaveDialog = ({
     },
     onError: (error: AxiosError<{ message: string }>) => {
       const message = error?.response?.data.message || "Something went wrong";
+      if (message.startsWith("A check is already exists at")) {
+        setErrors({
+          type: "CHECK_EXIST",
+          message,
+        });
+        return;
+      }
       toast.error(message);
     },
   });
@@ -147,32 +171,34 @@ export const AddLeaveDialog = ({
     if (leaveData) {
       form.reset({
         reason: leaveData.reason || "",
+        leaveDates: [],
       });
       return;
     }
     form.reset({
       reason: "",
+      leaveDates: [],
     });
   }, [leaveData]);
 
-  const handleRemoveLeave = () => {
-    if (!selectedMember) {
-      toast.error(
-        "Member data not found. Please reload or login your account again."
-      );
-      return;
-    }
-    if (!leaveData) {
-      toast.error(
-        "Leave data not found. Please reload or login your account again."
-      );
-      return;
-    }
-    removeLeaveMutation.mutate({
-      leaveId: leaveData.id,
-      memberId: selectedMember.id,
-    });
-  };
+  // const handleRemoveLeave = () => {
+  //   if (!selectedMember) {
+  //     toast.error(
+  //       "Member data not found. Please reload or login your account again."
+  //     );
+  //     return;
+  //   }
+  //   if (!leaveData) {
+  //     toast.error(
+  //       "Leave data not found. Please reload or login your account again."
+  //     );
+  //     return;
+  //   }
+  //   removeLeaveMutation.mutate({
+  //     leaveId: leaveData.id,
+  //     memberId: selectedMember.id,
+  //   });
+  // };
 
   const onSubmit = async (data: FormSchemaType) => {
     if (!selectedMember) {
@@ -181,28 +207,30 @@ export const AddLeaveDialog = ({
       );
       return;
     }
-    if (leaveData) {
-      const mutationData = {
-        reason: data.reason,
-        memberId: selectedMember.id,
-        organizationId,
-        leaveId: leaveData.id,
-      };
-      updateLeaveMutation.mutate(mutationData);
-    } else {
-      const mutationData = {
-        reason: data.reason,
-        memberId: selectedMember.id,
-        organizationId,
-      };
-      createLeaveMutation.mutate(mutationData);
-    }
+
+    const mutationData = {
+      reason: data.reason,
+      memberId: selectedMember.id,
+      organizationId,
+      leaveDates: data.leaveDates,
+      timezone: Intl.DateTimeFormat().resolvedOptions().timeZone,
+    };
+    createLeaveMutation.mutate(mutationData);
   };
 
   return (
     <Dialog
       open={isDialogOpen && !!selectedMember}
-      onOpenChange={setIsDialogOpen}
+      onOpenChange={(value) => {
+        if (!value) {
+          form.reset({
+            leaveDates: [],
+            reason: "",
+          });
+        }
+        setErrors(null);
+        setIsDialogOpen(value);
+      }}
     >
       <DialogContent>
         {leavePending ? (
@@ -214,152 +242,116 @@ export const AddLeaveDialog = ({
           </div>
         ) : (
           <>
-            {leaveData ? (
-              <>
-                <DialogHeader>
-                  <DialogTitle>Update/Remove a Leave</DialogTitle>
-                  <DialogDescription>
-                    Change or remove leave record for{" "}
-                    {selectedMember?.name || "this team member"}.
-                  </DialogDescription>
-                </DialogHeader>
-                <div className="flex flex-col items-center">
-                  <div className="bg-foreground rounded-xl px-4 py-5 flex flex-col items-center w-full">
-                    <ScrollTextIcon className="size-24 text-white" />
-                    <h2 className="text-base text-white">
-                      Leave for today has already been created for{" "}
-                      {selectedMember?.name || "this member"}
-                    </h2>
-                    <span className="text-neutral-200 text-base">
-                      You can <b className="text-green-400">update</b> or{" "}
-                      <b className="text-rose-400">delete</b>
+            <DialogHeader>
+              <DialogTitle>Add Leaves</DialogTitle>
+              <DialogDescription>
+                Fill out the details to record leaves for{" "}
+                {selectedMember?.name || "this team member"}.
+              </DialogDescription>
+            </DialogHeader>
+            <div className="flex flex-col">
+              <div className="flex items-center gap-2">
+                <Avatar className="w-12 h-12">
+                  <AvatarImage
+                    src={selectedMember?.image}
+                    alt={`${selectedMember?.name} image`}
+                  />
+                  <AvatarFallback>
+                    {selectedMember?.name.substring(0, 1)}
+                  </AvatarFallback>
+                </Avatar>
+                <h2 className="text-neutral-800 text-base font-semibold">
+                  {selectedMember?.name}
+                </h2>
+              </div>
+              <Form {...form}>
+                <form
+                  onSubmit={form.handleSubmit(onSubmit)}
+                  className="my-4 space-y-4"
+                >
+                  <FormField
+                    control={form.control}
+                    name="leaveDates"
+                    render={({ field }) => (
+                      <FormItem>
+                        <FormLabel>Leave Dates</FormLabel>
+                        <FormControl>
+                          <div className="flex flex-col">
+                            <Input
+                              onClick={() =>
+                                dateInputRef?.current?.showPicker()
+                              }
+                              ref={dateInputRef}
+                              type="date"
+                              onChange={(e) => {
+                                const date = new Date(
+                                  e.target.value
+                                ).toISOString();
+                                const isExist = field.value.find(
+                                  (item) => item === date
+                                );
+                                if (isExist) return;
+                                field.onChange([
+                                  new Date(e.target.value).toISOString(),
+                                  ...field.value,
+                                ]);
+                              }}
+                            />
+                            <div className="flex flex-wrap gap-3 mt-3">
+                              {field.value?.map((date, index) => (
+                                <div
+                                  key={index}
+                                  onClick={() => {
+                                    const updatedDates = field.value.filter(
+                                      (_, i) => i !== index
+                                    );
+                                    field.onChange(updatedDates);
+                                  }}
+                                  className="relative px-7 py-2 rounded-lg bg-foreground text-white text-sm"
+                                >
+                                  <span className="cursor-pointer absolute -right-1 -top-1 bg-rose-400 hover:bg-rose-500 rounded-full w-5 h-5 flex items-center justify-center">
+                                    <XIcon className="text-white size-4" />
+                                  </span>
+                                  {new Date(date).toLocaleDateString()}
+                                </div>
+                              ))}
+                            </div>
+                          </div>
+                        </FormControl>
+                        <FormMessage />
+                      </FormItem>
+                    )}
+                  />
+                  <FormField
+                    control={form.control}
+                    name="reason"
+                    render={({ field }) => (
+                      <FormItem>
+                        <FormLabel>Reason (optional)</FormLabel>
+                        <FormControl>
+                          <Textarea
+                            placeholder="Sick leave..."
+                            value={field.value}
+                            onChange={(e) => field.onChange(e.target.value)}
+                          />
+                        </FormControl>
+                        <FormMessage />
+                      </FormItem>
+                    )}
+                  />
+                  {errors && errors.type === "CHECK_EXIST" ? (
+                    <span className="flex items-center gap-2 text-sm text-rose-400">
+                      <CircleAlertIcon /> {errors.message}
                     </span>
-                  </div>
-                  <div className="flex flex-col w-full mt-4">
-                    <div className="flex items-center gap-2">
-                      <Avatar className="w-12 h-12">
-                        <AvatarImage
-                          src={selectedMember?.image}
-                          alt={`${selectedMember?.name} image`}
-                        />
-                        <AvatarFallback>
-                          {selectedMember?.name.substring(0, 1)}
-                        </AvatarFallback>
-                      </Avatar>
-                      <h2 className="text-neutral-800 text-base font-semibold">
-                        {selectedMember?.name}
-                      </h2>
-                    </div>
-                    <Form {...form}>
-                      <form
-                        onSubmit={form.handleSubmit(onSubmit)}
-                        className="my-4 space-y-4"
-                      >
-                        <FormField
-                          control={form.control}
-                          name="reason"
-                          render={({ field }) => (
-                            <FormItem>
-                              <FormLabel>Reason (optional)</FormLabel>
-                              <FormControl>
-                                <Textarea
-                                  placeholder="Sick leave..."
-                                  value={field.value}
-                                  onChange={(e) =>
-                                    field.onChange(e.target.value)
-                                  }
-                                />
-                              </FormControl>
-                              <FormMessage />
-                            </FormItem>
-                          )}
-                        />
-                        <div className="flex items-center gap-3">
-                          <Button
-                            disabled={
-                              createLeaveMutation.isPending ||
-                              removeLeaveMutation.isPending
-                            }
-                          >
-                            {createLeaveMutation.isPending
-                              ? "Please wait..."
-                              : "Update Today's Leave"}
-                          </Button>
-                          <Button
-                            type="button"
-                            onClick={handleRemoveLeave}
-                            disabled={
-                              createLeaveMutation.isPending ||
-                              removeLeaveMutation.isPending
-                            }
-                            variant="destructive"
-                          >
-                            {removeLeaveMutation.isPending
-                              ? "Please wait..."
-                              : "Remove Today's Leave"}
-                          </Button>
-                        </div>
-                      </form>
-                    </Form>
-                  </div>
-                </div>
-              </>
-            ) : (
-              <>
-                <DialogHeader>
-                  <DialogTitle>Add a Leave</DialogTitle>
-                  <DialogDescription>
-                    Fill out the details to record leave for{" "}
-                    {selectedMember?.name || "this team member"}.
-                  </DialogDescription>
-                </DialogHeader>
-                <div className="flex flex-col">
-                  <div className="flex items-center gap-2">
-                    <Avatar className="w-12 h-12">
-                      <AvatarImage
-                        src={selectedMember?.image}
-                        alt={`${selectedMember?.name} image`}
-                      />
-                      <AvatarFallback>
-                        {selectedMember?.name.substring(0, 1)}
-                      </AvatarFallback>
-                    </Avatar>
-                    <h2 className="text-neutral-800 text-base font-semibold">
-                      {selectedMember?.name}
-                    </h2>
-                  </div>
-                  <Form {...form}>
-                    <form
-                      onSubmit={form.handleSubmit(onSubmit)}
-                      className="my-4 space-y-4"
-                    >
-                      <FormField
-                        control={form.control}
-                        name="reason"
-                        render={({ field }) => (
-                          <FormItem>
-                            <FormLabel>Reason (optional)</FormLabel>
-                            <FormControl>
-                              <Textarea
-                                placeholder="Sick leave..."
-                                value={field.value}
-                                onChange={(e) => field.onChange(e.target.value)}
-                              />
-                            </FormControl>
-                            <FormMessage />
-                          </FormItem>
-                        )}
-                      />
-                      <Button disabled={createLeaveMutation.isPending}>
-                        {createLeaveMutation.isPending
-                          ? "Please wait..."
-                          : "Add Today's Leave"}
-                      </Button>
-                    </form>
-                  </Form>
-                </div>
-              </>
-            )}
+                  ) : null}
+                  <Button disabled={createLeaveMutation.isPending}>
+                    {createLeaveMutation.isPending
+                      ? "Please wait..."
+                      : "Add Leaves"}
+                  </Button>
+                </form>
+              </Form>
+            </div>
           </>
         )}
       </DialogContent>

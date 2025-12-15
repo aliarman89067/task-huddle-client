@@ -26,6 +26,7 @@ import { NoOrganization } from "@/constant";
 import { EmptyOrganization } from "@/components/empty-organization";
 import { ErrorCard } from "@/components/error-card";
 import { useGetQueryError } from "@/hooks/use-get-query-error";
+import { Switch } from "@/components/ui/switch";
 
 export const CheckInOutPageView = () => {
   const { selectedOrganizationId } = organizationStore();
@@ -60,8 +61,10 @@ export const CheckInOutPageView = () => {
       checkIn,
       checkOut,
       gracePeriod,
+      autoCheckout,
     }: {
       gracePeriod?: number;
+      autoCheckout: boolean;
       checkIn: {
         checkInHour: number;
         checkInMinute: number;
@@ -78,6 +81,7 @@ export const CheckInOutPageView = () => {
         checkOut,
         organizationId: data.id,
         gracePeriod,
+        autoCheckout,
       };
       const res = await axiosInstance.post(
         "/admin/checks/set-check-in-out",
@@ -101,6 +105,7 @@ export const CheckInOutPageView = () => {
       .string()
       .min(1, { message: "Check out timing is required!" }),
     gracePeriod: z.number().optional(),
+    autoCheckout: z.boolean(),
   });
 
   type FormSchemaType = z.infer<typeof formSchema>;
@@ -110,6 +115,7 @@ export const CheckInOutPageView = () => {
     defaultValues: {
       checkInTime: "",
       checkOutTime: "",
+      autoCheckout: false,
     },
   });
 
@@ -136,7 +142,8 @@ export const CheckInOutPageView = () => {
               )
             : ""
         }`,
-        gracePeriod: checkInOutData?.gracePeriod,
+        gracePeriod: checkInOutData?.gracePeriod || 0,
+        autoCheckout: checkInOutData?.autoCheckout,
       });
     }
   }, [checkInOutData]);
@@ -169,6 +176,7 @@ export const CheckInOutPageView = () => {
     }
 
     mutation.mutate({
+      autoCheckout: data.autoCheckout,
       gracePeriod: data.gracePeriod,
       checkIn: {
         checkInHour: IntCheckInHour,
@@ -220,70 +228,93 @@ export const CheckInOutPageView = () => {
                 onSubmit={form.handleSubmit(onSubmit)}
                 className="space-y-6"
               >
-                <div className="grid grid-cols-2 gap-5">
-                  <FormField
-                    control={form.control}
-                    name="checkInTime"
-                    render={({ field }) => (
-                      <FormItem>
-                        <FormLabel>Check In</FormLabel>
-                        <div
-                          onClick={() => inputRef1.current?.showPicker?.()}
-                          className="relative"
-                        >
-                          <FormControl>
-                            <Input
-                              ref={inputRef1}
-                              type="time"
-                              value={field.value}
-                              onChange={(e) => field.onChange(e.target.value)}
-                            />
-                          </FormControl>
-                        </div>
-                        <FormMessage />
-                      </FormItem>
-                    )}
-                  />
-                  <FormField
-                    control={form.control}
-                    name="checkOutTime"
-                    render={({ field }) => (
-                      <FormItem>
-                        <FormLabel>Check Out</FormLabel>
-                        <FormControl>
+                <div className="flex flex-col gap-5">
+                  <div className="grid grid-cols-2 gap-5">
+                    <FormField
+                      control={form.control}
+                      name="checkInTime"
+                      render={({ field }) => (
+                        <FormItem>
+                          <FormLabel>Check In</FormLabel>
                           <div
-                            onClick={() => inputRef2.current?.showPicker?.()}
+                            onClick={() => inputRef1.current?.showPicker?.()}
                             className="relative"
                           >
-                            <Input
-                              ref={inputRef2}
-                              type="time"
-                              value={field.value}
-                              onChange={(e) => field.onChange(e.target.value)}
-                            />
+                            <FormControl>
+                              <Input
+                                ref={inputRef1}
+                                type="time"
+                                value={field.value}
+                                onChange={(e) => field.onChange(e.target.value)}
+                              />
+                            </FormControl>
                           </div>
-                        </FormControl>
-                        <FormMessage />
-                      </FormItem>
-                    )}
-                  />
+                          <FormMessage />
+                        </FormItem>
+                      )}
+                    />
+                    <FormField
+                      control={form.control}
+                      name="checkOutTime"
+                      render={({ field }) => (
+                        <FormItem>
+                          <FormLabel>Check Out</FormLabel>
+                          <FormControl>
+                            <div
+                              onClick={() => inputRef2.current?.showPicker?.()}
+                              className="relative"
+                            >
+                              <Input
+                                ref={inputRef2}
+                                type="time"
+                                value={field.value}
+                                onChange={(e) => field.onChange(e.target.value)}
+                              />
+                            </div>
+                          </FormControl>
+                          <FormMessage />
+                        </FormItem>
+                      )}
+                    />
+                    <FormField
+                      control={form.control}
+                      name="gracePeriod"
+                      render={({ field }) => (
+                        <FormItem>
+                          <FormLabel>Grace Period Minute (Optional)</FormLabel>
+                          <FormControl>
+                            <div className="relative">
+                              <Input
+                                type="number"
+                                {...field}
+                                value={field.value}
+                                onChange={(e) =>
+                                  field.onChange(Number(e.target.value))
+                                }
+                              />
+                            </div>
+                          </FormControl>
+                          <FormMessage />
+                        </FormItem>
+                      )}
+                    />
+                  </div>
                   <FormField
                     control={form.control}
-                    name="gracePeriod"
+                    name="autoCheckout"
                     render={({ field }) => (
-                      <FormItem>
-                        <FormLabel>Grace Period Minute (Optional)</FormLabel>
+                      <FormItem className="w-fit">
+                        <FormLabel className="flex flex-col items-start gap-1">
+                          Auto Check Out
+                          <p className="text-sm text-neutral-600">
+                            Automatically checkout organization members.
+                          </p>
+                        </FormLabel>
                         <FormControl>
-                          <div className="relative">
-                            <Input
-                              type="number"
-                              {...field}
-                              value={field.value}
-                              onChange={(e) =>
-                                field.onChange(Number(e.target.value))
-                              }
-                            />
-                          </div>
+                          <Switch
+                            checked={field.value}
+                            onCheckedChange={field.onChange}
+                          />
                         </FormControl>
                         <FormMessage />
                       </FormItem>

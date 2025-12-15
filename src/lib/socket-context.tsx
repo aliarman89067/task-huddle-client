@@ -27,7 +27,7 @@ export const SocketProvider = ({ children }: { children: ReactNode }) => {
       const ipData = await response.json();
       const ip = ipData.ip;
       // Connect ws to server on the base of role
-      const socketIo = io("https://taskhuddle.live", {
+      const socketIo = io("https://backend.taskhuddle.live", {
         path: `/${role}/socket.io/`,
         transports: ["websocket"],
         withCredentials: true,
@@ -83,3 +83,28 @@ export const SocketProvider = ({ children }: { children: ReactNode }) => {
     <SocketContext.Provider value={socket}>{children}</SocketContext.Provider>
   );
 };
+
+// For Dev
+//  const socketIo = io(serverUri, {
+//    transports: ["websocket"],
+//    withCredentials: true,
+//    forceNew: true,
+//    auth: {
+//      role: data.data.role,
+//      ip,
+//      id: user?.id,
+//    },
+//  });
+
+// For Prod
+//  const socketIo = io("https://backend.taskhuddle.live", {
+//    path: `/${role}/socket.io/`,
+//    transports: ["websocket"],
+//    withCredentials: true,
+//    forceNew: true,
+//    auth: {
+//      role: data.data.role,
+//      ip,
+//      id: user?.id,
+//    },
+//  });

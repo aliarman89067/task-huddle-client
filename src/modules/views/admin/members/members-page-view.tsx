@@ -43,7 +43,8 @@ type MembersDataType = {
 
 export const MembersPageView = () => {
   const router = useRouter();
-  const [isDialogOpen, setIsDialogOpen] = useState(false);
+  const [addLeavesDialogOpen, setAddLeavesDialogOpen] = useState(false);
+  const [viewLeavesDialogOpen, setViewLeavesDialogOpen] = useState(false);
   const [selectedMember, setSelectedMember] = useState<MembersDataType | null>(
     null
   );
@@ -114,10 +115,10 @@ export const MembersPageView = () => {
         </Button>
       </div>
       <AddLeaveDialog
-        isDialogOpen={isDialogOpen}
+        isDialogOpen={addLeavesDialogOpen}
         selectedMember={selectedMember}
         organizationId={selectedOrganizationId!}
-        setIsDialogOpen={setIsDialogOpen}
+        setIsDialogOpen={setAddLeavesDialogOpen}
       />
       {membersData && membersData.length > 0 ? (
         <div className="w-full mt-5 flex flex-col">
@@ -126,7 +127,8 @@ export const MembersPageView = () => {
               <MemberCard
                 member={member}
                 setSelectedMember={setSelectedMember}
-                setIsDialogOpen={setIsDialogOpen}
+                setAddLeavesDialogOpen={setAddLeavesDialogOpen}
+                setViewLeavesDialogOpen={setViewLeavesDialogOpen}
               />
             ))}
           </div>

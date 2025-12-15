@@ -17,7 +17,7 @@ export const DashboardView = () => {
               style={{
                 background:
                   "conic-gradient(from 0deg, #ff004c, #ff7a00, #ffee00, #3be04b, #00b7ff, #6a00ff, #ff0080, #ff004c)",
-                filter: `blur(${blur}px) saturate(140%)`,
+                filter: `blur(10px) saturate(140%)`,
                 transformOrigin: "50% 50%",
               }}
               animate={{ rotate: 360 }}

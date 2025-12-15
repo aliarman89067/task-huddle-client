@@ -55,20 +55,27 @@ interface Props {
       projects?: number;
     } | null>
   >;
-  setIsDialogOpen: Dispatch<SetStateAction<boolean>>;
+  setAddLeavesDialogOpen: Dispatch<SetStateAction<boolean>>;
+  setViewLeavesDialogOpen: Dispatch<SetStateAction<boolean>>;
 }
 
 export const MemberCard = ({
   member,
   setSelectedMember,
-  setIsDialogOpen,
+  setAddLeavesDialogOpen,
+  setViewLeavesDialogOpen,
 }: Props) => {
   const router = useRouter();
   const queryClient = useQueryClient();
   const { selectedOrganizationId } = organizationStore();
-  const handleSelectMember = () => {
+  const handleAddLeaves = () => {
     setSelectedMember(member);
-    setIsDialogOpen(true);
+    setAddLeavesDialogOpen(true);
+  };
+  const handleViewLeaves = () => {
+    // Continue from here
+    setSelectedMember(member);
+    setViewLeavesDialogOpen(true);
   };
 
   const removeMemberMutation = useMutation({
@@ -109,8 +116,11 @@ export const MemberCard = ({
             </Button>
           </DropdownMenuTrigger>
           <DropdownMenuContent>
-            <DropdownMenuItem onClick={handleSelectMember}>
-              Add Leave
+            <DropdownMenuItem onClick={handleAddLeaves}>
+              Add Leaves
+            </DropdownMenuItem>
+            <DropdownMenuItem onClick={handleViewLeaves}>
+              View Leaves
             </DropdownMenuItem>
             <DropdownMenuItem onClick={handleAssignProjectRoute}>
               Assigned new project

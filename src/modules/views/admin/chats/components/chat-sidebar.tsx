@@ -189,6 +189,7 @@ export const ChatSidebar = ({
         }
       }
     } else {
+      const firstMember = membersData?.members[0];
       if (selectedMember) {
         const member = membersData?.members.find(
           (item) => item.id === selectedMember.id
@@ -222,6 +223,12 @@ export const ChatSidebar = ({
             ...firstRoom,
           });
         }
+      } else if (firstMember) {
+        setSelectedMember({
+          ...firstMember,
+          isAdmin: false,
+        });
+        setSelectedGroup(null);
       }
     }
   }, [membersData, memberId]);

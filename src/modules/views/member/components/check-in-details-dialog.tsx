@@ -15,7 +15,7 @@ import {
 } from "@/components/ui/table";
 import { cn } from "@/lib/utils";
 import { ClockIcon, MessageSquareIcon } from "lucide-react";
-import { Dispatch, SetStateAction } from "react";
+import { Dispatch, SetStateAction, useEffect } from "react";
 
 type Breaks = {
   id: string;
@@ -55,6 +55,13 @@ export const CheckInDetailsDialog = ({
   checkInData,
   setCheckInData,
 }: Props) => {
+  useEffect(() => {
+    if (!checkInData) {
+      setIsOpen(false);
+      return;
+    }
+  }, [checkInData]);
+
   const getTotalTime = ({
     checkInTime,
     checkOutTime,
@@ -116,11 +123,8 @@ export const CheckInDetailsDialog = ({
           `;
   };
 
-  if (!checkInData) {
-    setIsOpen(false);
-    return;
-  }
-  console.log(checkInData);
+  if (!checkInData) return;
+
   return (
     <Dialog
       open={isOpen}
